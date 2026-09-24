@@ -1,0 +1,459 @@
+/*
+ * The design system, ported from the Bun application's `styles/globals.css`.
+ *
+ * Tailwind v4 with the tokens, elevation scale and accent palettes the
+ * original app carried, so the UI Page looks like the app it was rather than
+ * like a page that happened to be rebuilt. Nothing here is fetched: the type
+ * stacks start at the platform's own UI face, which mattered in Docker with no
+ * route to a font CDN and matters again inside a ServiceNow frame.
+ *
+ * This file is an *input*. `tools/build-css.mjs` compiles it to
+ * `src/client/generated/app.css` before the client bundle is built, because
+ * the SDK's rollup pipeline understands plain CSS and nothing more — see the
+ * note in that file about why the compile is a prebuild step and not a
+ * PostCSS config.
+ */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * What Tailwind scans for class names. The default heuristic walks up from
+ * this file looking for a project root, which here would drag in `legacy/` —
+ * 10,000 lines of a UI that is no longer built, contributing utilities to
+ * every bundle. Naming the directory keeps the output to what this client
+ * actually uses.
+ */
+@source "../";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /*
+   * Typography. Both stacks start at the platform's own UI face, so the app
+   * looks native rather than like a page that failed to load a webfont — and
+   * nothing here is fetched, which matters for an app that runs in Docker with
+   * no way out to a font CDN.
+   */
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Inter, Roboto,
+    "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas,
+    monospace;
+
+  /*
+   * Elevation. Tailwind's defaults are a single hard drop; these are two
+   * layers — a tight contact shadow and a wide soft one — which is what makes
+   * a panel read as lifted rather than as outlined in grey.
+   */
+  --shadow-2xs: 0 1px 1px 0 var(--shadow-tint-weak);
+  --shadow-xs: 0 1px 2px 0 var(--shadow-tint-weak);
+  --shadow-sm: 0 1px 2px -1px var(--shadow-tint), 0 1px 3px 0 var(--shadow-tint-weak);
+  --shadow-md: 0 2px 4px -2px var(--shadow-tint), 0 6px 14px -3px var(--shadow-tint-weak);
+  --shadow-lg: 0 4px 8px -4px var(--shadow-tint), 0 16px 40px -8px var(--shadow-tint);
+  --shadow-xl: 0 8px 16px -8px var(--shadow-tint), 0 28px 64px -12px var(--shadow-tint);
+
+  /*
+   * The hairline that runs under the header while a generation is in flight.
+   * Indeterminate on purpose: the server sends no progress, and a bar that
+   * invents one is a lie told sixty times a second.
+   */
+  --animate-indeterminate: indeterminate 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%) scaleX(0.35);
+    }
+    50% {
+      transform: translateX(20%) scaleX(0.6);
+    }
+    100% {
+      transform: translateX(160%) scaleX(0.35);
+    }
+  }
+}
+
+/*
+ * The neutrals carry a trace of blue (chroma 0.002–0.006 at hue 265) rather
+ * than being dead grey. It is below the threshold of looking coloured, and it
+ * stops large flat areas — the sidebar, the preview table — reading as dirty.
+ *
+ * The page is a shade off white while cards stay pure white, so a field row or
+ * a settings section lifts off its surroundings without needing a heavy border.
+ */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.988 0.002 265);
+  --foreground: oklch(0.16 0.008 265);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0.008 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0.008 265);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.003 265);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.967 0.003 265);
+  --muted-foreground: oklch(0.525 0.014 265);
+  --accent: oklch(0.955 0.005 265);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.916 0.005 265);
+  --input: oklch(0.916 0.005 265);
+  --ring: oklch(0.708 0 0);
+  /* What every elevation token is tinted with — a cool shadow, not black. */
+  --shadow-tint: oklch(0.2 0.03 265 / 0.1);
+  --shadow-tint-weak: oklch(0.2 0.03 265 / 0.06);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.16 0.008 265);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.163 0.005 265);
+  --foreground: oklch(0.975 0.002 265);
+  --card: oklch(0.208 0.006 265);
+  --card-foreground: oklch(0.975 0.002 265);
+  --popover: oklch(0.218 0.007 265);
+  --popover-foreground: oklch(0.975 0.002 265);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.272 0.008 265);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.272 0.008 265);
+  --muted-foreground: oklch(0.715 0.012 265);
+  --accent: oklch(0.288 0.009 265);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  /* Dark surfaces have no light to cast, so elevation reads through contrast
+     against the page rather than through a visible drop — but a deep, nearly
+     black tint still gives a floating panel an edge. */
+  --shadow-tint: oklch(0 0 0 / 0.5);
+  --shadow-tint-weak: oklch(0 0 0 / 0.3);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+ * Accent palettes.
+ *
+ * `data-accent` is set on <html> beside the `.dark` class, from the account's
+ * preference. Each palette moves only the tokens that mean "this is the app
+ * talking" — the primary surface, the focus ring, and their sidebar twins.
+ *
+ * It deliberately leaves `--accent` alone: in this token set that is the
+ * neutral hover grey, not a brand colour, and tinting it would put the accent
+ * behind every row the pointer crosses. `--destructive` stays put too, since a
+ * delete has to keep reading as a delete whatever colour the app is wearing.
+ *
+ * The second selector in each dark rule matches a nested element rather than
+ * the root, so a swatch in Settings can render `var(--primary)` and show the
+ * real colour for the current theme instead of a hard-coded copy of it.
+ */
+
+[data-accent="blue"] {
+  --primary: oklch(0.546 0.215 262.9);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.546 0.215 262.9);
+  --sidebar-primary: oklch(0.546 0.215 262.9);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.546 0.215 262.9);
+}
+.dark[data-accent="blue"],
+.dark [data-accent="blue"] {
+  --primary: oklch(0.707 0.165 254.6);
+  --primary-foreground: oklch(0.21 0.04 265);
+  --ring: oklch(0.707 0.165 254.6);
+  --sidebar-primary: oklch(0.707 0.165 254.6);
+  --sidebar-primary-foreground: oklch(0.21 0.04 265);
+  --sidebar-ring: oklch(0.707 0.165 254.6);
+}
+
+[data-accent="violet"] {
+  --primary: oklch(0.541 0.246 293.0);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.541 0.246 293.0);
+  --sidebar-primary: oklch(0.541 0.246 293.0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.541 0.246 293.0);
+}
+.dark[data-accent="violet"],
+.dark [data-accent="violet"] {
+  --primary: oklch(0.715 0.165 295.0);
+  --primary-foreground: oklch(0.22 0.05 292);
+  --ring: oklch(0.715 0.165 295.0);
+  --sidebar-primary: oklch(0.715 0.165 295.0);
+  --sidebar-primary-foreground: oklch(0.22 0.05 292);
+  --sidebar-ring: oklch(0.715 0.165 295.0);
+}
+
+[data-accent="emerald"] {
+  --primary: oklch(0.508 0.118 165.6);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.508 0.118 165.6);
+  --sidebar-primary: oklch(0.508 0.118 165.6);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.508 0.118 165.6);
+}
+.dark[data-accent="emerald"],
+.dark [data-accent="emerald"] {
+  --primary: oklch(0.696 0.17 162.5);
+  --primary-foreground: oklch(0.20 0.04 166);
+  --ring: oklch(0.696 0.17 162.5);
+  --sidebar-primary: oklch(0.696 0.17 162.5);
+  --sidebar-primary-foreground: oklch(0.20 0.04 166);
+  --sidebar-ring: oklch(0.696 0.17 162.5);
+}
+
+[data-accent="amber"] {
+  /* Light amber cannot carry white text, so this one takes a dark foreground
+     in both themes rather than failing contrast in one of them. */
+  --primary: oklch(0.666 0.179 58.3);
+  --primary-foreground: oklch(0.21 0.03 60);
+  --ring: oklch(0.666 0.179 58.3);
+  --sidebar-primary: oklch(0.666 0.179 58.3);
+  --sidebar-primary-foreground: oklch(0.21 0.03 60);
+  --sidebar-ring: oklch(0.666 0.179 58.3);
+}
+.dark[data-accent="amber"],
+.dark [data-accent="amber"] {
+  --primary: oklch(0.769 0.188 70.1);
+  --primary-foreground: oklch(0.22 0.04 70);
+  --ring: oklch(0.769 0.188 70.1);
+  --sidebar-primary: oklch(0.769 0.188 70.1);
+  --sidebar-primary-foreground: oklch(0.22 0.04 70);
+  --sidebar-ring: oklch(0.769 0.188 70.1);
+}
+
+[data-accent="rose"] {
+  --primary: oklch(0.586 0.222 17.6);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.586 0.222 17.6);
+  --sidebar-primary: oklch(0.586 0.222 17.6);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.586 0.222 17.6);
+}
+.dark[data-accent="rose"],
+.dark [data-accent="rose"] {
+  --primary: oklch(0.712 0.175 13.4);
+  --primary-foreground: oklch(0.22 0.05 15);
+  --ring: oklch(0.712 0.175 13.4);
+  --sidebar-primary: oklch(0.712 0.175 13.4);
+  --sidebar-primary-foreground: oklch(0.22 0.05 15);
+  --sidebar-ring: oklch(0.712 0.175 13.4);
+}
+
+[data-accent="cyan"] {
+  --primary: oklch(0.520 0.105 223.1);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.520 0.105 223.1);
+  --sidebar-primary: oklch(0.520 0.105 223.1);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.520 0.105 223.1);
+}
+.dark[data-accent="cyan"],
+.dark [data-accent="cyan"] {
+  --primary: oklch(0.715 0.125 215.2);
+  --primary-foreground: oklch(0.20 0.04 220);
+  --ring: oklch(0.715 0.125 215.2);
+  --sidebar-primary: oklch(0.715 0.125 215.2);
+  --sidebar-primary-foreground: oklch(0.20 0.04 220);
+  --sidebar-ring: oklch(0.715 0.125 215.2);
+}
+
+[data-accent="slate"] {
+  /* The app's original look: a near-black primary with no hue at all. */
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.708 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+.dark[data-accent="slate"],
+.dark [data-accent="slate"] {
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --ring: oklch(0.556 0 0);
+  --sidebar-primary: oklch(0.922 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /*
+   * Figures line up in a column whatever digits they are made of — row counts,
+   * record numbers, the preview's index column — without every one of those
+   * places having to remember `tabular-nums`. Proportional figures are only
+   * right in running prose, and there is none of that here.
+   */
+  html {
+    font-variant-numeric: tabular-nums;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  /*
+   * Scrollbars. The app is panes inside panes, so the platform's default
+   * chrome shows up several times on one screen; these are thin, themed, and
+   * only paint their thumb — the track stays whatever it is over.
+   */
+  @supports (scrollbar-width: thin) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border) transparent;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-color: var(--color-border);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-muted-foreground);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Someone who has asked the system for less movement gets the app's state
+     changes without any of its travel. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/*
+ * Two patterns the app repeats often enough that they had drifted: the small
+ * capitalised caption over a control, and the little monospace token you click
+ * to insert. Naming them keeps every instance the same shape and gives the
+ * clickable one a focus ring it was missing.
+ */
+@utility label-caps {
+  @apply text-[11px] font-medium uppercase tracking-wide text-muted-foreground;
+}
+
+@utility chip {
+  @apply inline-flex items-center rounded-md border bg-background px-1.5 py-0.5 font-mono text-[11px]
+    transition-colors outline-none hover:border-primary/40 hover:bg-accent hover:text-accent-foreground
+    focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50;
+}
+
+/* A focus ring for the bare elements that are not Buttons — list rows, tabs,
+   the icon-sized steppers — so tabbing through the app never goes invisible. */
+@utility focus-ring {
+  @apply outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50;
+}
+
+
+/*
+ * The app shell.
+ *
+ * `legacy/index.css` set these on the Bun page; there they were page defaults,
+ * and here they are corrections — a UI Page is served inside the Polaris frame,
+ * which supplies its own body margin and its own font. The height chain is the
+ * addition: the layout is panes inside panes that each scroll on their own, and
+ * a percentage height is meaningless unless every ancestor has one.
+ */
+@layer base {
+  :root {
+    @apply font-sans;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply m-0 min-w-[320px] bg-background text-foreground antialiased;
+  }
+}

@@ -1,0 +1,27 @@
+{
+    "scope": "x_1040823_ddg_now",
+    "scopeId": "65acd41137e14128b4d778c42fc1f91e",
+    "name": "Dummy Data Generator",
+    "description": "Infer a schema from pasted JSON, TypeScript or DDL, then generate seeded, realistic test data into a dataset or straight into a table.",
+    "tsconfigPath": "./src/server/tsconfig.json",
+    "clientDir": "src/client",
+    "serverModulesDir": "src/server",
+    "serverModulesExcludePatterns": [
+        "**/*.test.ts",
+        "**/*.test.js",
+        "**/*.d.ts",
+        "**/tsconfig.json"
+    ],
+    "jsLevel": "es_latest",
+    "packageSourceCodeOnInstance": true,
+    "scripts": {
+        "prebuild": "./tools/prebuild.mjs",
+        "dev": "./tools/dev-client.mjs"
+    },
+    "staticContent": {
+        "buildDir": "dist/static",
+        "paths": {
+            "src/client/*.html": "dist/static/*.html"
+        }
+    }
+}

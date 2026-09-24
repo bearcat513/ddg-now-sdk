@@ -1,0 +1,10 @@
+.DS_Store
+.now/
+dist/
+node_modules/
+target/
+*.tsbuildinfo
+
+# Tailwind's compiled output. `tools/build-css.mjs` rewrites it on every build
+# from src/client/styles/globals.css, so a committed copy is only ever stale.
+src/client/generated/

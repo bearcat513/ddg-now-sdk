@@ -1,0 +1,19 @@
+<html>
+  <head>
+    <title>Dummy Data Generator</title>
+
+    <!-- Sets up window.g_ck, which every request to the scoped REST API has to
+         carry, and window.NOW, which says who is signed in. The `-polaris`
+         class that used to sit on <html> is gone with the platform components
+         it themed: this page brings its own design system, and opting into
+         Polaris now only invites its CSS to argue with ours. -->
+    <sdk:now-ux-globals></sdk:now-ux-globals>
+
+    <!-- The build system bundles main.tsx; the cache-buster keeps a stale
+         bundle from surviving an install. -->
+    <script src="main.tsx?uxpcb=$[UxFrameworkScriptables.getFlushTimestamp()]" type="module"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

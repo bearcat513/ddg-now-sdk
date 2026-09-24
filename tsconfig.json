@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": []
+  },
+  // `src/fluent` has its own ambient globals (`Now`, the Tables interface) that
+  // only exist inside the SDK's own build, and `src/server` is compiled through
+  // the tsconfig `now.config.json` points at. Neither belongs to this one, which
+  // exists for the design-time tooling in `tools/` and the tests.
+  "include": ["tools/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist", "target", "legacy"]
+}
