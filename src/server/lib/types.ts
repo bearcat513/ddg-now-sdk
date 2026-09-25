@@ -129,6 +129,14 @@ export type FieldOptions = {
   variant?: string;
   /** embedding: how many dimensions the vector has. */
   dimensions?: number;
+
+  /**
+   * Options read from another field of the same row instead of typed in, keyed
+   * by option and valued by field name: `{ max: "quantity" }` caps each row's
+   * value at that row's quantity. Only the keys in `LINKABLE_OPTIONS` count.
+   * When the named field is null on a row, the typed-in option applies.
+   */
+  links?: Partial<Record<LinkableOption, string>>;
 };
 
 export type Field = {
@@ -781,6 +789,43 @@ export const DATE_FIELD_TYPES = new Set<FieldType>([
 
 /** Types that spread several columns into the row instead of one value. */
 export const SPREADING_FIELD_TYPES = new Set<FieldType>(["bundle", "object"]);
+
+/**
+ * The options a field may take from another field's value in the same row, and
+ * the kind of value each one needs. A `date` option accepts any field whose
+ * value reads as a timestamp; a `number` option, any that reads as a number.
+ */
+export const LINKABLE_OPTIONS = {
+  min: "number",
+  max: "number",
+  mean: "number",
+  stddev: "number",
+  from: "date",
+  to: "date",
+} as const;
+
+export type LinkableOption = keyof typeof LINKABLE_OPTIONS;
+
+export function isLinkableOption(key: string): key is LinkableOption {
+  return Object.prototype.hasOwnProperty.call(LINKABLE_OPTIONS, key);
+}
+
+/** A template pattern's `{{field:name}}` tokens: the value of another column in the row. */
+const TEMPLATE_FIELD_TOKEN = /\{\{\s*field\s*:\s*([^}]+?)\s*\}\}/g;
+
+/**
+ * Every field whose value this one reads through its options: linked options,
+ * and `{{field:name}}` tokens in a template pattern. The generator orders on
+ * these and refuses a name that is not in the schema.
+ */
+export function linkedFieldNames(opts: FieldOptions | undefined): string[] {
+  const names: string[] = [];
+  for (const [key, name] of Object.entries(opts?.links ?? {})) {
+    if (isLinkableOption(key) && name) names.push(name);
+  }
+  for (const match of (opts?.pattern ?? "").matchAll(TEMPLATE_FIELD_TOKEN)) names.push(match[1]!);
+  return [...new Set(names)];
+}
 
 /** Types whose value is built from other fields, so they must run later. */
 export const DERIVING_FIELD_TYPES = new Set<FieldType>(["email", "username", "slug"]);

@@ -2,7 +2,10 @@ import { Random, hashSeed, randomFor } from "./random.ts";
 import {
   BUNDLE_COLUMNS,
   childFields,
+  isLinkableOption,
   isNumericField,
+  LINKABLE_OPTIONS,
+  linkedFieldNames,
   MAX_FIELD_DEPTH,
   SPREADING_FIELD_TYPES,
   usesChoiceScript,
@@ -479,6 +482,12 @@ function renderTemplate(pattern: string, ctx: GenContext): string {
   const f = ctx.f;
   return pattern.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (whole, tokenRaw: string) => {
     const [name = "", arg] = tokenRaw.split(":").map(s => s.trim());
+
+    if (name === "field") {
+      // Everything after the first colon, so a column name may hold one too.
+      const value = ctx.row[tokenRaw.slice(tokenRaw.indexOf(":") + 1).trim()];
+      return value === null || value === undefined ? "" : asText(value);
+    }
 
     if (name === "number" || name === "int") {
       const [lo, hi] = (arg ?? "0-999").split("-").map(Number);
@@ -1446,6 +1455,56 @@ function decorate(value: unknown, opts: FieldOptions): unknown {
   return `${opts.prefix ?? ""}${asText(value)}${opts.suffix ?? ""}`;
 }
 
+/** Reads a row value as a number: numbers, numeric text, and booleans as 1 / 0. */
+function toNumber(value: unknown): number | null {
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * The field's options with each linked option replaced by this row's value of
+ * the field it names. A value that is null, or not the kind the option needs,
+ * leaves the typed-in option in place.
+ *
+ * A linked bound can cross a fixed one — `max` linked to a quantity of 2 under
+ * a fixed `min` of 5. The linked side is the one that varies per row, so it is
+ * the one kept, and the fixed side moves to meet it.
+ */
+function resolveLinks(opts: FieldOptions, row: Row): FieldOptions {
+  const links = opts.links;
+  if (!links) return opts;
+
+  const resolved: FieldOptions = { ...opts };
+  for (const [key, name] of Object.entries(links)) {
+    if (!name || !isLinkableOption(key)) continue;
+    if (LINKABLE_OPTIONS[key] === "date") {
+      const date = toDate(row[name]);
+      if (date) resolved[key as "from" | "to"] = date.toISOString();
+    } else {
+      const value = toNumber(row[name]);
+      if (value !== null) resolved[key as "min" | "max" | "mean" | "stddev"] = value;
+    }
+  }
+
+  if (typeof resolved.min === "number" && typeof resolved.max === "number" && resolved.min > resolved.max) {
+    if (links.max && !links.min) resolved.min = resolved.max;
+    else resolved.max = resolved.min;
+  }
+  const from = resolved.from ? toDate(resolved.from) : null;
+  const to = resolved.to ? toDate(resolved.to) : null;
+  if (from && to && from >= to) {
+    if (links.to && !links.from) resolved.from = new Date(to.getTime() - 86_400_000).toISOString();
+    else resolved.to = new Date(from.getTime() + 86_400_000).toISOString();
+  }
+
+  return resolved;
+}
+
 /** Pushes a value past the timestamp of the field it must follow. */
 function applyAfter(value: unknown, opts: FieldOptions, ctx: GenContext): unknown {
   if (!opts.after) return value;
@@ -1489,7 +1548,7 @@ function buildRecord(children: Field[], ctx: GenContext): Record<string, unknown
 }
 
 function generateField(field: Field, ctx: GenContext, seen: Set<string> | undefined): unknown {
-  const opts = field.options ?? {};
+  const opts = resolveLinks(field.options ?? {}, ctx.row);
   ctx.fieldId = field.id;
 
   // A failed `when` blanks the field, whatever else it would have produced.
@@ -1528,6 +1587,7 @@ function dependencyNames(field: Field): string[] {
   const names: string[] = [];
   if (opts.derivesFrom) names.push(opts.derivesFrom);
   if (opts.after) names.push(opts.after);
+  names.push(...linkedFieldNames(opts));
   return names;
 }
 
@@ -1676,6 +1736,14 @@ export function generateInto(config: GenerateConfig, emit: RowSink, maxRows = 10
       }
       formulas.set(expression, parsed.node);
       refsByField.set(field.name, parsed.refs);
+    }
+
+    // A linked option or a `{{field:…}}` token must name a column this row has.
+    for (const name of linkedFieldNames(field.options)) {
+      if (name === field.name) throw new Error(`Field "${field.name}" cannot take an option from itself.`);
+      if (!comparable.has(name)) {
+        throw new Error(`Field "${field.name}" reads "${name}", which is not a field in this schema.`);
+      }
     }
 
     const when = (field.options?.when ?? "").trim();

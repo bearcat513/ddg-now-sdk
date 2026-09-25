@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, GripVertical, Plus, Settings2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Link2, Plus, Settings2, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -16,7 +16,10 @@ import {
   defaultFieldOptions,
   EDGE_CASE_VARIANTS,
   FIELD_TYPES,
+  isLinkableOption,
   isNumericField,
+  LINKABLE_OPTIONS,
+  linkedFieldNames,
   MAX_FIELD_DEPTH,
   NOW_CHOICE_FIELD_TYPES,
   NOW_CHOICE_VARIANTS,
@@ -27,6 +30,7 @@ import {
   type Field,
   type FieldOptions,
   type FieldType,
+  type LinkableOption,
 } from "../../../server/lib/types";
 
 type Props = {
@@ -53,6 +57,87 @@ function OptionField({ label, children }: { label: string; children: React.React
     <div className="flex flex-col gap-1.5">
       <Label className="label-caps">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+/**
+ * An option that can be typed in or taken from another field of the same row.
+ *
+ * The link button swaps the input for a field picker; pressing it again drops
+ * the link and the typed-in value comes back, untouched. A field that has been
+ * renamed or removed since it was linked stays selected, flagged, rather than
+ * being unlinked behind the user's back — the generator refuses it by name.
+ */
+function LinkableOptionField({
+  label,
+  linked,
+  candidates,
+  onLink,
+  children,
+}: {
+  label: string;
+  /** The field this option is linked to, if any. */
+  linked: string | undefined;
+  /** The fields whose value this option can take. */
+  candidates: string[];
+  onLink: (name: string | undefined) => void;
+  children: React.ReactNode;
+}) {
+  const [picking, setPicking] = useState(false);
+  const active = Boolean(linked) || picking;
+  const missing = linked !== undefined && !candidates.includes(linked);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-1">
+        <Label className="label-caps">{label}</Label>
+        <button
+          type="button"
+          disabled={!active && candidates.length === 0}
+          onClick={() => {
+            if (active) onLink(undefined);
+            setPicking(!active);
+          }}
+          aria-pressed={active}
+          aria-label={active ? `Type ${label} in` : `Take ${label} from another field`}
+          title={
+            active
+              ? "Type a value in instead"
+              : candidates.length
+                ? "Take this from another field in the same row"
+                : "No field in this schema has a value this option can use"
+          }
+          className={cn(
+            "focus-ring rounded p-0.5 transition-colors disabled:opacity-30",
+            active ? "text-primary" : "text-muted-foreground/60 hover:text-foreground",
+          )}
+        >
+          <Link2 className="size-3.5" />
+        </button>
+      </div>
+
+      {active ? (
+        <Select value={linked ?? ""} onValueChange={value => onLink(value || undefined)}>
+          <SelectTrigger className={cn("w-full font-mono text-xs", missing && "border-destructive")} size="sm">
+            <SelectValue placeholder="Choose a field" />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            {missing && (
+              <SelectItem value={linked!} className="font-mono text-xs text-destructive">
+                {linked} (missing)
+              </SelectItem>
+            )}
+            {candidates.map(name => (
+              <SelectItem key={name} value={name} className="font-mono text-xs">
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        children
+      )}
     </div>
   );
 }
@@ -553,17 +638,58 @@ export function FieldRow({
     [field.type, opts.expression, referenceable],
   );
 
-  const numberOption = (key: keyof FieldOptions, label: string, placeholder?: string) => (
-    <OptionField key={key} label={label}>
+  // Options that may come from another field's value in the same row. Not in
+  // nested records, which are built in schema order with no dependency sort,
+  // and not for a sequential timestamp, whose start is one series' start
+  // rather than a per-row bound.
+  const canLink = !nested && field.type !== "sequentialDate";
+
+  const linkCandidates = {
+    number: siblings.filter(f => isNumericField(f) || f.type === "boolean").map(f => f.name),
+    date: dateSiblings.map(f => f.name),
+  };
+
+  const setLink = (key: LinkableOption, name: string | undefined) => {
+    const next = { ...opts.links };
+    if (name) next[key] = name;
+    else delete next[key];
+    setOption("links", Object.keys(next).length ? next : undefined);
+  };
+
+  /** Wraps an option's input so it can be linked, where that option allows it. */
+  const linkable = (key: keyof FieldOptions, label: string, input: React.ReactNode) =>
+    canLink && isLinkableOption(key) ? (
+      <LinkableOptionField
+        key={key}
+        label={label}
+        linked={opts.links?.[key]}
+        candidates={linkCandidates[LINKABLE_OPTIONS[key]]}
+        onLink={name => setLink(key, name)}
+      >
+        {input}
+      </LinkableOptionField>
+    ) : (
+      <OptionField key={key} label={label}>
+        {input}
+      </OptionField>
+    );
+
+  const numberOption = (key: keyof FieldOptions, label: string, placeholder?: string) =>
+    linkable(
+      key,
+      label,
       <Input
         type="number"
         className="h-8"
         placeholder={placeholder}
         value={(opts[key] as number | undefined) ?? ""}
         onChange={e => setOption(key, (e.target.value === "" ? undefined : Number(e.target.value)) as never)}
-      />
-    </OptionField>
-  );
+      />,
+    );
+
+  // Names a template's `{{field:…}}` tokens point at that the schema lacks.
+  const missingTemplateFields =
+    field.type === "template" ? linkedFieldNames({ pattern: opts.pattern }).filter(name => !comparable.includes(name)) : [];
 
   return (
     <div
@@ -852,14 +978,44 @@ export function FieldRow({
           )}
 
           {meta?.opts.includes("pattern") && (
-            <OptionField label="Pattern">
-              <Input
-                className="h-8 font-mono text-xs"
-                placeholder="ORD-{{number:1000-9999}}"
-                value={opts.pattern ?? ""}
-                onChange={e => setOption("pattern", e.target.value)}
-              />
-            </OptionField>
+            <div className="col-span-2 flex flex-col gap-2 sm:col-span-4">
+              <OptionField label="Pattern">
+                <Input
+                  className="h-8 font-mono text-xs"
+                  placeholder="ORD-{{number:1000-9999}}-{{field:customer_id}}"
+                  spellCheck={false}
+                  value={opts.pattern ?? ""}
+                  onChange={e => setOption("pattern", e.target.value)}
+                />
+              </OptionField>
+
+              {!nested && comparable.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1">
+                  <span className="text-[11px] text-muted-foreground">Insert field:</span>
+                  {comparable.map(name => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setOption("pattern", `${opts.pattern ?? ""}{{field:${name}}}`)}
+                      className="chip"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {missingTemplateFields.length > 0 ? (
+                <p className="text-[11px] text-destructive">
+                  Not a field in this schema: {missingTemplateFields.join(", ")}
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground/70">
+                  <span className="font-mono">{"{{field:name}}"}</span> puts in that row's value of another field;
+                  a null one leaves nothing.
+                </p>
+              )}
+            </div>
           )}
 
           {meta?.opts.includes("table") && (
@@ -896,25 +1052,33 @@ export function FieldRow({
             </div>
           )}
 
-          {meta?.opts.includes("from") && (
-            <OptionField label="From">
+          {meta?.opts.includes("from") &&
+            linkable(
+              "from",
+              "From",
               <Input
                 type="date"
                 className="h-8"
                 value={opts.from?.slice(0, 10) ?? ""}
                 onChange={e => setOption("from", e.target.value)}
-              />
-            </OptionField>
-          )}
-          {meta?.opts.includes("to") && (
-            <OptionField label="To">
+              />,
+            )}
+          {meta?.opts.includes("to") &&
+            linkable(
+              "to",
+              "To",
               <Input
                 type="date"
                 className="h-8"
                 value={opts.to?.slice(0, 10) ?? ""}
                 onChange={e => setOption("to", e.target.value)}
-              />
-            </OptionField>
+              />,
+            )}
+          {opts.links && Object.keys(opts.links).length > 0 && (
+            <p className="col-span-2 text-[11px] text-muted-foreground/70 sm:col-span-4">
+              A linked option takes each row's value of that field. Where the field is null, the typed-in value
+              applies.
+            </p>
           )}
 
           {meta?.opts.includes("format") && (

@@ -365,6 +365,115 @@ test('a when predicate blanks the field when it fails', () => {
     }
 })
 
+/* ---------------------------- linked options ----------------------------- */
+
+test('a linked max reads each row, even when the field it names comes later', () => {
+    const rows = generateRows({
+        fields: [
+            field('picked', 'integer', { min: 1, max: 1000, links: { max: 'quantity' } }),
+            field('quantity', 'integer', { min: 1, max: 20 }),
+        ],
+        rowCount: 80,
+        seed: 'linked-max',
+        locale: 'en',
+    })
+    for (const row of rows) {
+        assert.ok((row['picked'] as number) <= (row['quantity'] as number), JSON.stringify(row))
+    }
+})
+
+test('a linked max below the fixed min pulls the min down to meet it', () => {
+    const rows = generateRows({
+        fields: [field('cap', 'integer', { min: 1, max: 3 }), field('n', 'integer', { min: 50, links: { max: 'cap' } })],
+        rowCount: 30,
+        seed: 'crossed',
+        locale: 'en',
+    })
+    for (const row of rows) assert.equal(row['n'], row['cap'])
+})
+
+test('a linked date bound keeps each row inside its own window', () => {
+    const rows = generateRows({
+        fields: [
+            field('opened', 'date', { from: '2024-01-01', to: '2024-06-30' }),
+            field('closed', 'date', { to: '2024-12-31', links: { from: 'opened' } }),
+        ],
+        rowCount: 40,
+        seed: 'linked-date',
+        locale: 'en',
+    })
+    for (const row of rows) {
+        assert.ok(new Date(row['closed'] as string) >= new Date(row['opened'] as string), JSON.stringify(row))
+    }
+})
+
+test('a null source falls back to the typed-in option', () => {
+    const rows = generateRows({
+        fields: [
+            field('cap', 'integer', { min: 1, max: 5, when: 'flag' }),
+            field('flag', 'boolean', { truePercent: 0 }),
+            field('n', 'integer', { min: 100, max: 200, links: { max: 'cap' } }),
+        ],
+        rowCount: 20,
+        seed: 'fallback',
+        locale: 'en',
+    })
+    for (const row of rows) {
+        assert.equal(row['cap'], null)
+        assert.ok((row['n'] as number) >= 100 && (row['n'] as number) <= 200)
+    }
+})
+
+test('a template can put in another field of the row', () => {
+    const rows = generateRows({
+        fields: [
+            field('ref', 'template', { pattern: 'ORD-{{field:id}}-{{field:customer.last_name}}' }),
+            field('id', 'autoIncrement', { min: 7 }),
+            field('customer', 'bundle', { bundle: 'person' }),
+        ],
+        rowCount: 5,
+        seed: 'template-field',
+        locale: 'en',
+    })
+    for (const row of rows) assert.equal(row['ref'], `ORD-${row['id']}-${row['customer.last_name']}`)
+})
+
+test('a link to a field the schema lacks, or to itself, is refused by name', () => {
+    assert.throws(
+        () =>
+            generateRows({
+                fields: [field('n', 'integer', { links: { max: 'nope' } })],
+                rowCount: 1,
+                locale: 'en',
+            }),
+        /"nope"/,
+    )
+    assert.throws(
+        () =>
+            generateRows({
+                fields: [field('n', 'integer', { links: { max: 'n' } })],
+                rowCount: 1,
+                locale: 'en',
+            }),
+        /itself/,
+    )
+})
+
+test('links that read each other in a loop are refused', () => {
+    assert.throws(
+        () =>
+            generateRows({
+                fields: [
+                    field('a', 'integer', { links: { max: 'b' } }),
+                    field('b', 'integer', { links: { min: 'a' } }),
+                ],
+                rowCount: 1,
+                locale: 'en',
+            }),
+        /loop/i,
+    )
+})
+
 test('a dynamic enum with no resolver refuses rather than generating nonsense', () => {
     assert.throws(
         () =>
