@@ -249,6 +249,50 @@ Acl({
     condition: OWN_RECORD,
 })
 
+/* ------------------------------- whiteboards ----------------------------- */
+
+/**
+ * A whiteboard is shared like a template: anyone with the role can open one,
+ * and only its creator can change or remove it. A drawing is how a team
+ * explains a schema to itself, which is only useful if the team can see it.
+ * Someone who wants to change a colleague's board saves their own copy, the
+ * same answer the template and configuration rules give.
+ */
+Acl({
+    $id: Now.ID['whiteboard-read'],
+    type: 'record',
+    operation: 'read',
+    table: 'x_1040823_ddg_now_whiteboard',
+    roles: [ddgUser],
+    description: 'Anyone with the DDG role can open any whiteboard.',
+})
+
+Acl({
+    $id: Now.ID['whiteboard-create'],
+    type: 'record',
+    operation: 'create',
+    table: 'x_1040823_ddg_now_whiteboard',
+    roles: [ddgUser],
+})
+
+Acl({
+    $id: Now.ID['whiteboard-write'],
+    type: 'record',
+    operation: 'write',
+    table: 'x_1040823_ddg_now_whiteboard',
+    roles: [ddgUser],
+    condition: OWN_RECORD,
+})
+
+Acl({
+    $id: Now.ID['whiteboard-delete'],
+    type: 'record',
+    operation: 'delete',
+    table: 'x_1040823_ddg_now_whiteboard',
+    roles: [ddgUser],
+    condition: OWN_RECORD,
+})
+
 /* ------------------------------ preferences ------------------------------ */
 
 /**

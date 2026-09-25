@@ -25,6 +25,7 @@
 
 import type { Dataset } from '../../server/lib/types'
 import type { ScriptTemplate } from '../../server/lib/scriptTemplate'
+import type { WhiteboardSummary } from '../../server/lib/whiteboard'
 import type { ConfigSummary } from './api'
 
 /** One surviving item, and why it survived when the reason is not its name. */
@@ -37,6 +38,7 @@ export type Match<T> = {
 export type NavResults = {
     configs: Match<ConfigSummary>[]
     templates: Match<ScriptTemplate>[]
+    whiteboards: Match<WhiteboardSummary>[]
     datasets: Match<Dataset>[]
     /** Everything that matched, across every list. */
     total: number
@@ -89,13 +91,27 @@ function matchDataset(dataset: Dataset, needle: string): Match<Dataset> | null {
 }
 
 /**
+ * A board matches on its name only. The nav holds no drawings — the list
+ * endpoint leaves the scene behind — and text on a canvas is not what anyone
+ * searches a nav for.
+ */
+function matchWhiteboard(board: WhiteboardSummary, needle: string): Match<WhiteboardSummary> | null {
+    return has(board.name, needle) ? { item: board } : null
+}
+
+/**
  * Filters every list at once. An empty query passes everything through
  * untouched, so the caller renders one code path whether or not it is
  * searching.
  */
 export function searchNav(
     query: string,
-    lists: { configs: ConfigSummary[]; templates: ScriptTemplate[]; datasets: Dataset[] },
+    lists: {
+        configs: ConfigSummary[]
+        templates: ScriptTemplate[]
+        whiteboards: WhiteboardSummary[]
+        datasets: Dataset[]
+    },
 ): NavResults {
     const needle = normalizeQuery(query)
 
@@ -103,8 +119,9 @@ export function searchNav(
         return {
             configs: lists.configs.map((item) => ({ item })),
             templates: lists.templates.map((item) => ({ item })),
+            whiteboards: lists.whiteboards.map((item) => ({ item })),
             datasets: lists.datasets.map((item) => ({ item })),
-            total: lists.configs.length + lists.templates.length + lists.datasets.length,
+            total: lists.configs.length + lists.templates.length + lists.whiteboards.length + lists.datasets.length,
         }
     }
 
@@ -120,7 +137,14 @@ export function searchNav(
 
     const configs = hit(lists.configs, matchConfig)
     const templates = hit(lists.templates, matchTemplate)
+    const whiteboards = hit(lists.whiteboards, matchWhiteboard)
     const datasets = hit(lists.datasets, matchDataset)
 
-    return { configs, templates, datasets, total: configs.length + templates.length + datasets.length }
+    return {
+        configs,
+        templates,
+        whiteboards,
+        datasets,
+        total: configs.length + templates.length + whiteboards.length + datasets.length,
+    }
 }

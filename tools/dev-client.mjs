@@ -14,7 +14,7 @@
  */
 
 import { servicenowFrontEndPlugins, watch } from '@servicenow/isomorphic-rollup'
-import { compileCss } from './build-css.mjs'
+import { compileCss, copyExcalidrawCss } from './build-css.mjs'
 
 export default async function devClient({ rootDir, config, fs, path, logger, credential }) {
     const clientDir = path.join(rootDir, config.clientDir)
@@ -23,6 +23,7 @@ export default async function devClient({ rootDir, config, fs, path, logger, cre
 
     // Once up front and awaited, so the first bundle never races a stylesheet
     // that does not exist yet; then a watcher that outlives this call.
+    copyExcalidrawCss({ rootDir })
     await compileCss({ rootDir })
     compileCss({ rootDir, args: ['--watch'] }).catch((error) => logger.warn(`Tailwind stopped: ${error.message}`))
 

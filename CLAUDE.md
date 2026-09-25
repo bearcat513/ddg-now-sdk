@@ -44,7 +44,7 @@ previous artifacts in place, so deploying without rebuilding pushes stale output
     a dependency.
   - `components/app/` — this product: `Sidebar`, `FieldRow`, `TypeSelect`, `PreviewTable`,
     `RowDetail`, `ImportPanel`, `MetadataEditor`, `ScriptTemplatePanel`, `CodeEditor`,
-    `SettingsPanel`, `SplitHandle`.
+    `SettingsPanel`, `SplitHandle`, `WhiteboardPanel`, `WhiteboardCanvas`.
   - `lib/api.ts` — **the only file that knows a URL.** A component that calls `fetch` is a bug.
   - `styles/globals.css` — the design tokens. It is an *input*: `tools/build-css.mjs` compiles it
     to `src/client/generated/app.css` (gitignored) before the bundle is built.
@@ -105,6 +105,25 @@ Three properties are load-bearing, and `tests/scriptTemplate.test.ts` asserts ea
 Whether Save edits or forks a template is `canWrite` on the record — the write ACL's own answer.
 Do not reintroduce an owner comparison in the client: `sys_created_by` is a user name the page
 never reliably learns.
+
+## Whiteboards
+
+`@excalidraw/excalidraw` powers the `?view=whiteboard&board=<id>` view. Each board is one record in
+`x_1040823_ddg_now_whiteboard`, and its `scene` column holds exactly the text Excalidraw writes
+for a `.excalidraw` file (`serializeAsJSON(..., 'local')`), pasted images included.
+
+- `WhiteboardCanvas.tsx` is the **only** file that imports Excalidraw, and `WhiteboardPanel` loads
+  it with `React.lazy`. Keep it that way: the library is most of the bundle, and it should only
+  download when someone opens a board.
+- The package's stylesheet can't be imported by its package name (its `exports` only list the
+  `development`/`production` conditions). `tools/build-css.mjs` copies it and its `Assistant`
+  fonts into `src/client/generated/excalidraw/`, and the canvas imports that copy.
+- Drawing fonts are loaded at runtime from Excalidraw's CDN fallback (`esm.sh`) unless
+  `window.EXCALIDRAW_ASSET_PATH` is set.
+- A board you own saves itself a moment after you stop drawing. New boards and other people's
+  boards only save when you press Save, and saving someone else's board creates your own copy —
+  the same rule script templates follow. `MAX_WHITEBOARD_SCENE_LENGTH` in
+  `src/server/lib/whiteboard.ts` must match the column's `maxLength`.
 
 ## The generator
 

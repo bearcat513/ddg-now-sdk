@@ -24,6 +24,9 @@ export const DATASET_JSON_LIMIT = 16_000_000
 /** A chunk of JavaScript with placeholders a dataset is rendered into. */
 export const TEMPLATE_TABLE = 'x_1040823_ddg_now_template'
 
+/** An Excalidraw scene, stored whole. */
+export const WHITEBOARD_TABLE = 'x_1040823_ddg_now_whiteboard'
+
 /** One row per person, holding how they like the workspace arranged. */
 export const PREF_TABLE = 'x_1040823_ddg_now_user_pref'
 

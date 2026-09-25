@@ -14,6 +14,9 @@
  * is — this has to finish before `build-client.mjs` runs, which has to finish
  * before the Fluent compiler resolves the UI page's HTML import.
  *
+ * It also copies Excalidraw's stylesheet in beside ours — see
+ * `copyExcalidrawCss` below.
+ *
  * Running the CLI as a child process is deliberate. Tailwind v4's compiler is
  * reached through the CLI or through a bundler plugin; there is no stable
  * programmatic entry point, and shelling out to the binary that ships with the
@@ -22,6 +25,8 @@
  */
 
 import { spawn } from 'node:child_process'
+import { cpSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /** Where the CLI lives once `npm install` has run. */
@@ -60,7 +65,34 @@ export function compileCss({ rootDir, args = [] }) {
     })
 }
 
+/**
+ * Excalidraw's stylesheet, and the fonts it names, copied in beside ours.
+ *
+ * The whiteboard imports the package's built CSS, and that CSS loads its UI
+ * font with `url("./fonts/…")`. The SDK's pipeline turns a font it finds that
+ * way into a theme asset named by its path *relative to the client
+ * directory* — and a path into `node_modules` from there starts with `../`,
+ * which rollup refuses as an asset name. Copied under `generated/`, the same
+ * files have a path the pipeline accepts, and nothing about the CSS changes.
+ *
+ * Only the stylesheet and the `fonts/Assistant` folder it references. The
+ * drawing fonts (Excalifont, Virgil, Cascadia, the CJK sets) are not in the
+ * CSS at all: Excalidraw loads them itself at runtime, from
+ * `window.EXCALIDRAW_ASSET_PATH` or its CDN fallback.
+ */
+export const EXCALIDRAW_CSS_SOURCE = 'node_modules/@excalidraw/excalidraw/dist/prod'
+export const EXCALIDRAW_CSS_OUTPUT = 'src/client/generated/excalidraw'
+
+export function copyExcalidrawCss({ rootDir }) {
+    const from = join(rootDir, EXCALIDRAW_CSS_SOURCE)
+    const to = join(rootDir, EXCALIDRAW_CSS_OUTPUT)
+    rmSync(to, { recursive: true, force: true })
+    cpSync(join(from, 'index.css'), join(to, 'index.css'))
+    cpSync(join(from, 'fonts', 'Assistant'), join(to, 'fonts', 'Assistant'), { recursive: true })
+}
+
 export default async function buildCss({ rootDir, fs, path, logger }) {
+    copyExcalidrawCss({ rootDir })
     await compileCss({ rootDir })
 
     const output = path.join(rootDir, OUTPUT)

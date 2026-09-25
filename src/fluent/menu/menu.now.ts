@@ -84,6 +84,20 @@ Record({
 })
 
 Record({
+    $id: Now.ID['ddg-module-whiteboards'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Whiteboards',
+        application: ddgMenu,
+        link_type: 'LIST',
+        name: 'x_1040823_ddg_now_whiteboard',
+        hint: 'Every whiteboard you can read',
+        active: true,
+        order: 250,
+    },
+})
+
+Record({
     $id: Now.ID['ddg-module-datasets-sep'],
     table: 'sys_app_module',
     data: {

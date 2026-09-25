@@ -7,6 +7,7 @@ import {
   FileStack,
   ListTree,
   PanelLeftClose,
+  PenLine,
   Plus,
   Search,
   Settings2,
@@ -22,6 +23,7 @@ import { cn } from "../../lib/utils";
 import type { ConfigSummary } from "../../lib/api";
 import type { Dataset } from "../../../server/lib/types";
 import type { ScriptTemplate } from "../../../server/lib/scriptTemplate";
+import type { WhiteboardSummary } from "../../../server/lib/whiteboard";
 import type { NavSection } from "../../../server/lib/preferences";
 
 /**
@@ -38,9 +40,12 @@ export type { NavSection };
 type Props = {
   configs: ConfigSummary[];
   templates: ScriptTemplate[];
+  whiteboards: WhiteboardSummary[];
   datasets: Dataset[];
   activeConfigId: string | null;
   activeTemplateId: string | null;
+  /** The board on screen — null unless the whiteboard view is the one showing. */
+  activeWhiteboardId: string | null;
   activeDatasetId: string | null;
   /** Where the data lives — the scope, and whether the API answered. */
   storage: string;
@@ -54,6 +59,9 @@ type Props = {
   onNewTemplate: () => void;
   onLoadTemplate: (template: ScriptTemplate) => void;
   onDeleteTemplate: (id: string) => void;
+  onNewWhiteboard: () => void;
+  onLoadWhiteboard: (board: WhiteboardSummary) => void;
+  onDeleteWhiteboard: (id: string) => void;
   onLoadDataset: (dataset: Dataset) => void;
   onDeleteDataset: (id: string) => void;
   /** Which lists are folded shut, and the control that folds them. */
@@ -208,6 +216,14 @@ function templateSubtitle(template: ScriptTemplate): string {
   return `${uses} dataset placeholder${uses === 1 ? "" : "s"} · ${timeAgo(template.updatedAt)}`;
 }
 
+/**
+ * Whose board it is, under its name. The nav says so because it changes what
+ * opening one means: somebody else's board is read, and saving it forks it.
+ */
+function whiteboardSubtitle(board: WhiteboardSummary): string {
+  return `${board.canWrite ? "Yours" : `by ${board.ownerId}`} · ${timeAgo(board.updatedAt)}`;
+}
+
 /** Nothing here yet, said quietly rather than as a row of its own. */
 function EmptyNote({ children }: { children: React.ReactNode }) {
   return <p className="px-2 py-1.5 text-xs text-muted-foreground/70">{children}</p>;
@@ -228,9 +244,11 @@ function Avatar({ label }: { label: string }) {
 export function Sidebar({
   configs,
   templates,
+  whiteboards,
   datasets,
   activeConfigId,
   activeTemplateId,
+  activeWhiteboardId,
   activeDatasetId,
   storage,
   me,
@@ -242,6 +260,9 @@ export function Sidebar({
   onNewTemplate,
   onLoadTemplate,
   onDeleteTemplate,
+  onNewWhiteboard,
+  onLoadWhiteboard,
+  onDeleteWhiteboard,
   onLoadDataset,
   onDeleteDataset,
   collapsedSections,
@@ -259,8 +280,8 @@ export function Sidebar({
   const reachable = storage ? !/unreachable|unavailable/i.test(storage) : null;
 
   const results = useMemo(
-    () => searchNav(query, { configs, templates, datasets }),
-    [query, configs, templates, datasets],
+    () => searchNav(query, { configs, templates, whiteboards, datasets }),
+    [query, configs, templates, whiteboards, datasets],
   );
   const searching = query.trim().length > 0;
 
@@ -346,7 +367,7 @@ export function Sidebar({
               else searchInput.current?.blur();
             }}
             placeholder="Search everything…"
-            aria-label="Search configurations, script templates and datasets"
+            aria-label="Search configurations, script templates, whiteboards and datasets"
             className={cn(
               "focus-ring h-8 w-full rounded-md border bg-background pl-8 pr-14 text-sm",
               "placeholder:text-muted-foreground/70",
@@ -476,6 +497,42 @@ export function Sidebar({
                     hint={hint}
                     onSelect={() => onLoadTemplate(template)}
                     onDelete={() => onDeleteTemplate(template.id)}
+                  />
+                ))}
+          </Section>
+        </div>
+
+        <div className="border-t">
+          <Section
+            id="whiteboards"
+            icon={<PenLine className="size-3.5" />}
+            label="Whiteboards"
+            count={results.whiteboards.length}
+            open={isOpen("whiteboards", results.whiteboards.length)}
+            onToggle={() => onToggleSection("whiteboards")}
+            actions={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onNewWhiteboard}
+                aria-label="New whiteboard"
+                title="New whiteboard"
+              >
+                <Plus />
+              </Button>
+            }
+          >
+            {results.whiteboards.length === 0
+              ? note("No whiteboards yet.")
+              : results.whiteboards.map(({ item: board, hint }: Match<WhiteboardSummary>) => (
+                  <ListRow
+                    key={board.id}
+                    active={board.id === activeWhiteboardId}
+                    title={board.name}
+                    subtitle={whiteboardSubtitle(board)}
+                    hint={hint}
+                    onSelect={() => onLoadWhiteboard(board)}
+                    onDelete={board.canWrite ? () => onDeleteWhiteboard(board.id) : undefined}
                   />
                 ))}
           </Section>

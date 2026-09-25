@@ -29,7 +29,7 @@ export type Theme = 'system' | 'light' | 'dark'
 export const THEMES: Theme[] = ['system', 'light', 'dark']
 
 /** The foldable lists in the left-hand nav, in the order they are drawn. */
-export const NAV_SECTIONS = ['configs', 'templates', 'datasets'] as const
+export const NAV_SECTIONS = ['configs', 'templates', 'whiteboards', 'datasets'] as const
 
 export type NavSection = (typeof NAV_SECTIONS)[number]
 

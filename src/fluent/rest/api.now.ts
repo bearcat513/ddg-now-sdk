@@ -19,6 +19,10 @@ import {
     updateConfigHandler,
     updatePreferencesHandler,
     updateTemplateHandler,
+    whiteboardHandler,
+    createWhiteboardHandler,
+    updateWhiteboardHandler,
+    deleteWhiteboardHandler,
 } from '../../server/rest/handlers'
 
 /**
@@ -222,6 +226,47 @@ RestApi({
             path: '/template/{templateId}',
             script: deleteTemplateHandler,
             shortDescription: 'Delete a script template.',
+        },
+        {
+            $id: Now.ID['ddg-api-whiteboard-list'],
+            name: 'whiteboards',
+            method: 'GET',
+            path: '/whiteboard',
+            script: whiteboardHandler,
+            shortDescription: 'Every whiteboard the caller can read, without drawings.',
+        },
+        {
+            $id: Now.ID['ddg-api-create-whiteboard'],
+            name: 'create-whiteboard',
+            method: 'POST',
+            path: '/whiteboard',
+            script: createWhiteboardHandler,
+            shortDescription: 'Store a whiteboard. "scene" is an Excalidraw scene, as text or as an object.',
+            requestExample: '{ "name": "Orders data model", "scene": { "type": "excalidraw", "version": 2, "elements": [] } }',
+        },
+        {
+            $id: Now.ID['ddg-api-whiteboard'],
+            name: 'whiteboard',
+            method: 'GET',
+            path: '/whiteboard/{whiteboardId}',
+            script: whiteboardHandler,
+            shortDescription: 'One whiteboard, its Excalidraw scene included.',
+        },
+        {
+            $id: Now.ID['ddg-api-update-whiteboard'],
+            name: 'update-whiteboard',
+            method: 'PUT',
+            path: '/whiteboard/{whiteboardId}',
+            script: updateWhiteboardHandler,
+            shortDescription: 'Save a whiteboard. Name and scene together; answers with the summary, not the scene.',
+        },
+        {
+            $id: Now.ID['ddg-api-delete-whiteboard'],
+            name: 'delete-whiteboard',
+            method: 'DELETE',
+            path: '/whiteboard/{whiteboardId}',
+            script: deleteWhiteboardHandler,
+            shortDescription: 'Delete a whiteboard.',
         },
         {
             $id: Now.ID['ddg-api-dataset-script'],

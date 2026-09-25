@@ -26,6 +26,7 @@ import { ScriptTemplatePanel } from "./components/app/ScriptTemplatePanel";
 import { SettingsPanel, type SaveState } from "./components/app/SettingsPanel";
 import { Sidebar, type NavSection } from "./components/app/Sidebar";
 import { SplitHandle } from "./components/app/SplitHandle";
+import { WhiteboardPanel, type BoardGuard } from "./components/app/WhiteboardPanel";
 import { api, type ConfigSummary } from "./lib/api";
 import { configFileName, parseConfigFile, serializeConfigFile } from "./lib/configFile";
 import { fromPairs, toPairs, type MetadataPair } from "./lib/metadata";
@@ -58,6 +59,7 @@ import {
   type FieldType,
   type SchemaConfig,
 } from "../server/lib/types";
+import type { Whiteboard, WhiteboardSummary } from "../server/lib/whiteboard";
 
 type Banner = { kind: "error" | "info"; lines: string[] } | null;
 
@@ -87,6 +89,7 @@ const newField = (type: FieldType): Field => ({
 export function App() {
   const [configs, setConfigs] = useState<ConfigSummary[]>([]);
   const [templates, setTemplates] = useState<ScriptTemplate[]>([]);
+  const [whiteboards, setWhiteboards] = useState<WhiteboardSummary[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [storage, setStorage] = useState("");
 
@@ -113,6 +116,22 @@ export function App() {
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState(STARTER_TEMPLATE_BODY);
+
+  /**
+   * The whiteboard view's board.
+   *
+   * `board` is what was *loaded* — the panel reads it once, on mount — and
+   * `boardSession` is the panel's key, bumped whenever a different board is
+   * opened or a new one started. Saving a new board changes `activeBoardId`
+   * but not the session, so the canvas carries on rather than reloading the
+   * drawing it just sent. `boardGuard` is the panel's answer to "is there
+   * anything unsaved", read before navigating away from it.
+   */
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+  const [board, setBoard] = useState<Whiteboard | null>(null);
+  const [boardSession, setBoardSession] = useState(0);
+  const [boardLoading, setBoardLoading] = useState(false);
+  const boardGuard = useRef<BoardGuard>({ dirty: false, autosaves: false });
 
   const [tab, setTab] = useState<Tab>(() => getStateFromUrl().tab);
   const [expandedField, setExpandedField] = useState<string | null>(null);
@@ -173,13 +192,15 @@ export function App() {
   /* ------------------------------- loading ------------------------------- */
 
   const refreshLists = useCallback(async () => {
-    const [nextConfigs, nextTemplates, nextDatasets] = await Promise.all([
+    const [nextConfigs, nextTemplates, nextWhiteboards, nextDatasets] = await Promise.all([
       api.listConfigs(),
       api.listTemplates(),
+      api.listWhiteboards(),
       api.listDatasets(),
     ]);
     setConfigs(nextConfigs);
     setTemplates(nextTemplates);
+    setWhiteboards(nextWhiteboards);
     setDatasets(nextDatasets);
   }, []);
 
@@ -279,6 +300,9 @@ export function App() {
         : [...preferences.collapsedNavSections, section],
     });
 
+  /** Whether the page is dark right now, for the one child that themes itself. */
+  const [dark, setDark] = useState(false);
+
   /**
    * The theme is a class on `<html>`; "system" follows the OS, live.
    *
@@ -292,6 +316,8 @@ export function App() {
       const dark = preferences.theme === "dark" || (preferences.theme === "system" && media.matches);
       document.documentElement.classList.toggle("dark", dark);
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      // Excalidraw draws its own canvas and cannot read a class off <html>.
+      setDark(dark);
     };
     apply();
     media.addEventListener("change", apply);
@@ -321,16 +347,30 @@ export function App() {
   const activeTemplateRef = useRef<string | null>(null);
   activeTemplateRef.current = activeTemplateId;
 
+  /** The same, for the board — only written to the URL while its view is up. */
+  const activeBoardRef = useRef<string | null>(null);
+  activeBoardRef.current = activeBoardId;
+
   /** Writes the current state to the address bar, and to the Polaris frame. */
   const publishLocation = useCallback(
     (
-      state: Omit<WorkspaceState, "view" | "templateId"> & { view?: View; templateId?: string | null },
+      state: Omit<WorkspaceState, "view" | "templateId" | "boardId"> & {
+        view?: View;
+        templateId?: string | null;
+        boardId?: string | null;
+      },
       label?: string,
     ) => {
-      // Everything that pushes except the settings control is an editor action,
-      // so leaving `view` out means the editor — which is also what makes
-      // opening a schema from the nav close settings on its way past.
-      const full: WorkspaceState = { view: "editor", templateId: activeTemplateRef.current, ...state };
+      // Everything that pushes except the settings and whiteboard controls is
+      // an editor action, so leaving `view` out means the editor — which is
+      // also what makes opening a schema from the nav close settings on its
+      // way past.
+      const full: WorkspaceState = {
+        view: "editor",
+        templateId: activeTemplateRef.current,
+        boardId: activeBoardRef.current,
+        ...state,
+      };
       const path = pathFor(full);
       setView(full.view);
       setLocation(path, titleFor(full, label));
@@ -525,6 +565,110 @@ export function App() {
     }
   }
 
+  /* ------------------------------ whiteboards ---------------------------- */
+
+  /**
+   * Whether it is all right to take the whiteboard off screen.
+   *
+   * A board that saves itself saves its last edit on the way out, so only a
+   * new or forked one has anything to lose — and that is worth one question
+   * rather than a silent discard.
+   */
+  const confirmLeaveBoard = useCallback(() => {
+    if (view !== "whiteboard") return true;
+    const { dirty, autosaves } = boardGuard.current;
+    if (!dirty || autosaves) return true;
+    return window.confirm("This whiteboard has unsaved changes. Leave it anyway?");
+  }, [view]);
+
+  /** Puts the panel on a board — or on a blank one — as a fresh mount. */
+  const showBoard = useCallback((next: Whiteboard | null) => {
+    setBoard(next);
+    setActiveBoardId(next?.id ?? null);
+    setBoardSession(session => session + 1);
+    setBanner(
+      next && !next.canWrite
+        ? { kind: "info", lines: [`"${next.name}" is somebody else's. Saving a change keeps your own copy.`] }
+        : null,
+    );
+  }, []);
+
+  /** By id, since a URL can name a board the nav's list has not loaded yet. */
+  const openBoardById = useCallback(
+    async (id: string, { push = true }: { push?: boolean } = {}) => {
+      setBoardLoading(true);
+      try {
+        const loaded = await api.getWhiteboard(id);
+        showBoard(loaded);
+        if (push) {
+          publishLocation(
+            { configId: activeConfigId, datasetId: dataset?.id ?? null, tab, view: "whiteboard", boardId: id },
+            loaded.name,
+          );
+        }
+      } catch (error) {
+        fail(error);
+      } finally {
+        setBoardLoading(false);
+      }
+    },
+    [activeConfigId, dataset, tab, publishLocation, showBoard, fail],
+  );
+
+  const startNewBoard = useCallback(
+    ({ push = true }: { push?: boolean } = {}) => {
+      showBoard(null);
+      if (push) {
+        publishLocation({ configId: activeConfigId, datasetId: dataset?.id ?? null, tab, view: "whiteboard", boardId: null });
+      }
+    },
+    [activeConfigId, dataset, tab, publishLocation, showBoard],
+  );
+
+  /**
+   * A save landed. The nav's list is patched in place rather than refetched —
+   * a board saves itself every few seconds while it is drawn on, and reloading
+   * every list on each of those would be most of what this page sends.
+   */
+  const onBoardSaved = useCallback(
+    (saved: WhiteboardSummary, created: boolean) => {
+      const summary: WhiteboardSummary = {
+        id: saved.id,
+        name: saved.name,
+        ownerId: saved.ownerId,
+        canWrite: saved.canWrite,
+        createdAt: saved.createdAt,
+        updatedAt: saved.updatedAt,
+      };
+      setWhiteboards(current => [summary, ...current.filter(entry => entry.id !== saved.id)]);
+      if (!created) return;
+      setActiveBoardId(saved.id);
+      setBanner(null);
+      publishLocation(
+        { configId: activeConfigId, datasetId: dataset?.id ?? null, tab, view: "whiteboard", boardId: saved.id },
+        saved.name,
+      );
+    },
+    [activeConfigId, dataset, tab, publishLocation],
+  );
+
+  async function removeBoard(id: string) {
+    const target = whiteboards.find(entry => entry.id === id);
+    if (!window.confirm(`Delete the whiteboard "${target?.name ?? id}"? This cannot be undone.`)) return;
+
+    try {
+      await api.deleteWhiteboard(id);
+      setWhiteboards(current => current.filter(entry => entry.id !== id));
+      // Nothing is left to save, so the guard must not try on the way out.
+      if (id === activeBoardId) {
+        boardGuard.current = { dirty: false, autosaves: false };
+        startNewBoard();
+      }
+    } catch (error) {
+      fail(error);
+    }
+  }
+
   /**
    * Restores whatever the URL asks for — on first paint, and again whenever
    * the back button rewrites it.
@@ -547,15 +691,19 @@ export function App() {
       if (state.configId) void openConfig(state.configId, { push: false });
       if (state.datasetId) void openDatasetById(state.datasetId, { push: false });
       if (state.templateId) void openTemplateById(state.templateId, { push: false });
+      if (state.view === "whiteboard") {
+        if (state.boardId) void openBoardById(state.boardId, { push: false });
+        else startNewBoard({ push: false });
+      }
       document.title = titleFor(state);
     };
 
     restore();
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-    // These three are stable enough for this to run on mount and on every
+    // These are stable enough for this to run on mount and on every
     // back/forward, which is exactly when it should.
-  }, [openConfig, openDatasetById, openTemplateById]);
+  }, [openConfig, openDatasetById, openTemplateById, openBoardById, startNewBoard]);
 
   const changeTab = (next: Tab) => {
     setTab(next);
@@ -919,14 +1067,16 @@ export function App() {
         <Sidebar
           configs={configs}
           templates={templates}
+          whiteboards={whiteboards}
           datasets={datasets}
           activeConfigId={activeConfigId}
           activeTemplateId={activeTemplateId}
+          activeWhiteboardId={view === "whiteboard" ? activeBoardId : null}
           activeDatasetId={dataset?.id ?? null}
           storage={storage}
           me={window.NOW?.user?.displayName ?? "You"}
-          onNewConfig={startNewConfig}
-          onLoadConfig={config => void openConfig(config.id)}
+          onNewConfig={() => confirmLeaveBoard() && startNewConfig()}
+          onLoadConfig={config => confirmLeaveBoard() && void openConfig(config.id)}
           onDeleteConfig={removeConfig}
           onImportConfig={importConfig}
           onExportConfig={config =>
@@ -939,15 +1089,18 @@ export function App() {
               )
               .catch(fail)
           }
-          onNewTemplate={startNewTemplate}
-          onLoadTemplate={template => applyTemplate(template)}
+          onNewTemplate={() => confirmLeaveBoard() && startNewTemplate()}
+          onLoadTemplate={template => confirmLeaveBoard() && applyTemplate(template)}
           onDeleteTemplate={removeTemplate}
-          onLoadDataset={record => void openDatasetById(record.id)}
+          onNewWhiteboard={() => confirmLeaveBoard() && startNewBoard()}
+          onLoadWhiteboard={entry => confirmLeaveBoard() && void openBoardById(entry.id)}
+          onDeleteWhiteboard={id => void removeBoard(id)}
+          onLoadDataset={record => confirmLeaveBoard() && void openDatasetById(record.id)}
           onDeleteDataset={removeDataset}
           collapsedSections={preferences.collapsedNavSections}
           onToggleSection={toggleNavSection}
           onCollapse={() => updatePreferences({ sidebarCollapsed: true })}
-          onOpenSettings={() => showSettings("settings")}
+          onOpenSettings={() => confirmLeaveBoard() && showSettings("settings")}
           settingsOpen={view === "settings"}
         />
       )}
@@ -966,6 +1119,25 @@ export function App() {
           onClose={() => showSettings("editor")}
           leading={expandSidebarButton}
         />
+      ) : view === "whiteboard" ? (
+        boardLoading ? (
+          <main className="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Opening the whiteboard…
+          </main>
+        ) : (
+          <WhiteboardPanel
+              key={boardSession}
+              board={board}
+              dark={dark}
+              leading={expandSidebarButton}
+              banner={bannerNode}
+              guard={boardGuard}
+              onNew={() => confirmLeaveBoard() && startNewBoard()}
+              onSaved={onBoardSaved}
+              onError={message => setBanner({ kind: "error", lines: [message] })}
+            />
+        )
       ) : (
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="relative flex flex-wrap items-end gap-3 border-b bg-card/40 px-4 py-3">

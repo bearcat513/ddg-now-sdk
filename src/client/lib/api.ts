@@ -17,12 +17,14 @@
  *
  * The routes that served auth, sessions, API keys, sharing, notes and Telegram
  * are gone because those features did not come across. What is left is
- * schemas, runs, rows, and the script templates rows are rendered into.
+ * schemas, runs, rows, the script templates rows are rendered into, and
+ * whiteboards.
  */
 
 import type { Dataset, Field, SchemaConfig } from '../../server/lib/types'
 import type { Preferences } from '../../server/lib/preferences'
 import type { ScriptTemplate } from '../../server/lib/scriptTemplate'
+import type { Whiteboard, WhiteboardInput, WhiteboardSummary } from '../../server/lib/whiteboard'
 
 export const API_BASE = '/api/x_1040823_ddg_now/ddg'
 
@@ -325,6 +327,24 @@ export const api = {
     /** The same script as text, for the copy button. */
     scriptText: (datasetId: string, templateId: string) =>
         fetchText(api.scriptUrl(datasetId, templateId), 'The rendered script'),
+
+    /* ------------------------------ whiteboards --------------------------- */
+
+    /** Names and dates only: a scene can be megabytes, and the nav needs none of it. */
+    listWhiteboards: () =>
+        request<{ whiteboards: WhiteboardSummary[] }>('/whiteboard').then((result) => result.whiteboards),
+
+    getWhiteboard: (id: string) => request<Whiteboard>(`/whiteboard/${encodeURIComponent(id)}`),
+
+    createWhiteboard: (board: WhiteboardInput) =>
+        request<Whiteboard>('/whiteboard', { method: 'POST', ...body(board) }),
+
+    /** Answers with the summary: the caller already holds the scene it sent. */
+    updateWhiteboard: (id: string, board: WhiteboardInput) =>
+        request<WhiteboardSummary>(`/whiteboard/${encodeURIComponent(id)}`, { method: 'PUT', ...body(board) }),
+
+    deleteWhiteboard: (id: string) =>
+        request<{ ok: true }>(`/whiteboard/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
     /* ----------------------------- preferences ---------------------------- */
 

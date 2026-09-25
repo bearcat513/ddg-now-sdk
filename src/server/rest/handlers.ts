@@ -1,10 +1,11 @@
 /**
  * The scripted REST handlers.
  *
- * Twenty-one routes, not thirty-six. The Bun server's route list carried auth,
- * sessions, API keys, sharing, notes and Telegram, none of which came across.
- * What is left is this application's actual subject — schemas, runs, the rows
- * they produce, and the scripts those rows are dropped into:
+ * Twenty-six routes. The Bun server's thirty-six carried auth, sessions, API
+ * keys, sharing, notes and Telegram, none of which came across. What is left
+ * is this application's actual subject — schemas, runs, the rows they produce,
+ * the scripts those rows are dropped into — and the whiteboards a team draws
+ * them on:
  *
  *   POST   /infer                      paste a structure, get a field list
  *   POST   /preview                    rows from a schema that has no record yet
@@ -27,6 +28,11 @@
  *   PUT    /template/{templateId}      save an edited body
  *   DELETE /template/{templateId}      remove it
  *   GET    /dataset/{datasetId}/script a dataset rendered into a template
+ *   GET    /whiteboard                 every whiteboard the caller can read
+ *   POST   /whiteboard                 store one
+ *   GET    /whiteboard/{whiteboardId}  one board, drawing included
+ *   PUT    /whiteboard/{whiteboardId}  save a drawing
+ *   DELETE /whiteboard/{whiteboardId}  remove it
  *
  * They are also the UI Page's entire data layer. That is a deliberate change
  * of direction: the page used to reach records through the platform's own list
@@ -77,6 +83,14 @@ import {
     validateTemplate,
     type TemplateInput,
 } from '../db/templates.ts'
+import {
+    createWhiteboard,
+    deleteWhiteboard,
+    getWhiteboard,
+    listWhiteboards,
+    updateWhiteboard,
+} from '../db/whiteboards.ts'
+import { EMPTY_WHITEBOARD_SCENE, validateWhiteboard, type WhiteboardInput } from '../lib/whiteboard.ts'
 import { renderScriptTemplate, scriptFileName, scriptTemplateValues } from '../lib/scriptTemplate.ts'
 
 /* --------------------------------- /infer -------------------------------- */
@@ -567,6 +581,87 @@ export function deleteTemplateHandler(request: RestRequest, response: RestRespon
         if (!templateId) return fail(response, 400, 'No template id in the path.')
         if (!deleteTemplate(templateId)) {
             return fail(response, 404, 'No such script template, or it is not yours to delete.')
+        }
+        json(response, 200, { ok: true })
+    })
+}
+
+/* ------------------------------- /whiteboard ----------------------------- */
+
+/**
+ * The board a request is asking to store, or a sentence saying why it cannot
+ * be. Shared by create and update, which take the same body.
+ */
+function readWhiteboardInput(request: RestRequest): { input: WhiteboardInput } | { error: string } {
+    const body = readBody(request)
+    const scene = body.scene
+    const input: WhiteboardInput = {
+        name: typeof body.name === 'string' ? body.name : '',
+        // The page sends the text Excalidraw wrote; a pipeline that read a
+        // `.excalidraw` file may reasonably post the parsed object instead.
+        // Either is the same scene, and it is stored as text.
+        scene:
+            typeof scene === 'string'
+                ? scene
+                : scene && typeof scene === 'object'
+                  ? JSON.stringify(scene)
+                  : EMPTY_WHITEBOARD_SCENE,
+    }
+    const error = validateWhiteboard(input)
+    return error ? { error } : { input }
+}
+
+/**
+ * Reads whiteboards: the list, without drawings, or one board with its own.
+ */
+export function whiteboardHandler(request: RestRequest, response: RestResponse): void {
+    guarded('whiteboard', response, () => {
+        const whiteboardId = request.pathParams?.whiteboardId
+        if (whiteboardId) {
+            const board = getWhiteboard(whiteboardId)
+            if (!board) return fail(response, 404, 'No such whiteboard, or you may not read it.')
+            return json(response, 200, board)
+        }
+        json(response, 200, { whiteboards: listWhiteboards() })
+    })
+}
+
+export function createWhiteboardHandler(request: RestRequest, response: RestResponse): void {
+    guarded('create-whiteboard', response, () => {
+        const read = readWhiteboardInput(request)
+        if ('error' in read) return fail(response, 400, read.error)
+
+        const board = createWhiteboard(read.input)
+        if (!board) return fail(response, 403, 'Could not save the whiteboard — check your create access.')
+        json(response, 201, board)
+    })
+}
+
+/**
+ * Saves a board. Name and scene together, like a template: there is no edit
+ * of one that is not an edit of the record. Answers with the summary only —
+ * see `updateWhiteboard`.
+ */
+export function updateWhiteboardHandler(request: RestRequest, response: RestResponse): void {
+    guarded('update-whiteboard', response, () => {
+        const whiteboardId = request.pathParams?.whiteboardId
+        if (!whiteboardId) return fail(response, 400, 'No whiteboard id in the path.')
+
+        const read = readWhiteboardInput(request)
+        if ('error' in read) return fail(response, 400, read.error)
+
+        const board = updateWhiteboard(whiteboardId, read.input)
+        if (!board) return fail(response, 404, 'No such whiteboard, or it is not yours to change.')
+        json(response, 200, board)
+    })
+}
+
+export function deleteWhiteboardHandler(request: RestRequest, response: RestResponse): void {
+    guarded('delete-whiteboard', response, () => {
+        const whiteboardId = request.pathParams?.whiteboardId
+        if (!whiteboardId) return fail(response, 400, 'No whiteboard id in the path.')
+        if (!deleteWhiteboard(whiteboardId)) {
+            return fail(response, 404, 'No such whiteboard, or it is not yours to delete.')
         }
         json(response, 200, { ok: true })
     })
