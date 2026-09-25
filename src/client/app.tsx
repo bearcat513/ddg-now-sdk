@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Braces,
   Download,
+  FileCode2,
   Info,
   ListTree,
   Loader2,
@@ -21,6 +22,7 @@ import { FieldRow } from "./components/app/FieldRow";
 import { ImportPanel } from "./components/app/ImportPanel";
 import { MetadataEditor } from "./components/app/MetadataEditor";
 import { PreviewTable } from "./components/app/PreviewTable";
+import { ScriptTemplatePanel } from "./components/app/ScriptTemplatePanel";
 import { SettingsPanel, type SaveState } from "./components/app/SettingsPanel";
 import { Sidebar, type NavSection } from "./components/app/Sidebar";
 import { SplitHandle } from "./components/app/SplitHandle";
@@ -44,6 +46,10 @@ import {
   type Preferences,
 } from "../server/lib/preferences";
 import { cn } from "./lib/utils";
+import {
+  STARTER_TEMPLATE_BODY,
+  type ScriptTemplate,
+} from "../server/lib/scriptTemplate";
 import {
   defaultFieldOptions,
   LOCALES,
@@ -69,10 +75,10 @@ const newField = (type: FieldType): Field => ({
  * This is the Bun application's `App.tsx` with the parts that had no server
  * behind them any more taken out. Gone: the sign-in screen and session check
  * (the platform has already decided who this is), the share dialog, the API
- * key preview, the dashboard and the settings page, and the mappings, scripts
- * and notes tabs. What is left is the two tabs this app is actually about, and
- * they are the ones that carried the design work — paste a structure, edit the
- * fields it inferred, run it, look at the rows.
+ * key preview, the dashboard and the settings page, and the mappings and notes
+ * tabs. What is left is the three tabs this app is actually about, and they
+ * are the ones that carried the design work — paste a structure, edit the
+ * fields it inferred, run it, look at the rows, drop them into a script.
  *
  * What is new is the URL. On the platform this page is reached through the
  * navigator and lives in a breadcrumb, so which configuration is open is in
@@ -80,6 +86,7 @@ const newField = (type: FieldType): Field => ({
  */
 export function App() {
   const [configs, setConfigs] = useState<ConfigSummary[]>([]);
+  const [templates, setTemplates] = useState<ScriptTemplate[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [storage, setStorage] = useState("");
 
@@ -95,6 +102,17 @@ export function App() {
   /** Measured while dragging, to turn a pointer position into a percentage. */
   const editorPanes = useRef<HTMLDivElement>(null);
   const [fields, setFields] = useState<Field[]>([]);
+
+  /**
+   * The script template on screen.
+   *
+   * Held apart from the schema, because it is not part of one: the same
+   * template renders whichever dataset it is pointed at, and opening one does
+   * not close the configuration someone was editing.
+   */
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateBody, setTemplateBody] = useState(STARTER_TEMPLATE_BODY);
 
   const [tab, setTab] = useState<Tab>(() => getStateFromUrl().tab);
   const [expandedField, setExpandedField] = useState<string | null>(null);
@@ -155,8 +173,13 @@ export function App() {
   /* ------------------------------- loading ------------------------------- */
 
   const refreshLists = useCallback(async () => {
-    const [nextConfigs, nextDatasets] = await Promise.all([api.listConfigs(), api.listDatasets()]);
+    const [nextConfigs, nextTemplates, nextDatasets] = await Promise.all([
+      api.listConfigs(),
+      api.listTemplates(),
+      api.listDatasets(),
+    ]);
     setConfigs(nextConfigs);
+    setTemplates(nextTemplates);
     setDatasets(nextDatasets);
   }, []);
 
@@ -287,13 +310,27 @@ export function App() {
    */
   const restoredFrom = useRef<string | null>(null);
 
+  /**
+   * The template in the address bar, for the pushes that are not about one.
+   *
+   * A ref rather than a dependency, so `publishLocation` stays the stable
+   * callback half the effects below are built on: opening a schema or a
+   * dataset leaves `?template=` exactly as it was, the way `?config=` rides
+   * through a dataset push.
+   */
+  const activeTemplateRef = useRef<string | null>(null);
+  activeTemplateRef.current = activeTemplateId;
+
   /** Writes the current state to the address bar, and to the Polaris frame. */
   const publishLocation = useCallback(
-    (state: Omit<WorkspaceState, "view"> & { view?: View }, label?: string) => {
+    (
+      state: Omit<WorkspaceState, "view" | "templateId"> & { view?: View; templateId?: string | null },
+      label?: string,
+    ) => {
       // Everything that pushes except the settings control is an editor action,
       // so leaving `view` out means the editor — which is also what makes
       // opening a schema from the nav close settings on its way past.
-      const full: WorkspaceState = { view: "editor", ...state };
+      const full: WorkspaceState = { view: "editor", templateId: activeTemplateRef.current, ...state };
       const path = pathFor(full);
       setView(full.view);
       setLocation(path, titleFor(full, label));
@@ -391,6 +428,103 @@ export function App() {
     [activeConfigId, tab, publishLocation, fail],
   );
 
+  /* --------------------------- script templates -------------------------- */
+
+  /** Puts a template into the scripts pane and makes it the URL's. */
+  const applyTemplate = useCallback(
+    (template: ScriptTemplate, { push = true }: { push?: boolean } = {}) => {
+      setActiveTemplateId(template.id);
+      setTemplateName(template.name);
+      setTemplateBody(template.body);
+      setTab("scripts");
+      if (push) {
+        publishLocation(
+          { configId: activeConfigId, datasetId: dataset?.id ?? null, templateId: template.id, tab: "scripts" },
+          template.name,
+        );
+      }
+      // Said once, on open, rather than as a warning beside Save: it changes
+      // what the button will do, and that is worth knowing before typing.
+      setBanner(
+        template.canWrite
+          ? null
+          : {
+              kind: "info",
+              lines: [`"${template.name}" is somebody else's. Saving a change keeps your own copy.`],
+            },
+      );
+    },
+    [activeConfigId, dataset, publishLocation],
+  );
+
+  /**
+   * By id, since a URL can name a template the nav's list has not loaded yet —
+   * and the endpoint answers with the body either way.
+   */
+  const openTemplateById = useCallback(
+    async (id: string, { push = true }: { push?: boolean } = {}) => {
+      try {
+        applyTemplate(await api.getTemplate(id), { push });
+      } catch (error) {
+        fail(error);
+      }
+    },
+    [applyTemplate, fail],
+  );
+
+  /** An empty template, on the starter body so the placeholders are visible. */
+  const startNewTemplate = useCallback(() => {
+    setActiveTemplateId(null);
+    setTemplateName("");
+    setTemplateBody(STARTER_TEMPLATE_BODY);
+    setTab("scripts");
+    setBanner(null);
+    publishLocation({ configId: activeConfigId, datasetId: dataset?.id ?? null, templateId: null, tab: "scripts" });
+  }, [activeConfigId, dataset, publishLocation]);
+
+  /**
+   * Saves the template on screen.
+   *
+   * Editing someone else's forks it, exactly as the Bun version did — except
+   * that whether it is someone else's is the ACL's answer, carried on the
+   * record as `canWrite`, rather than a comparison this page makes.
+   */
+  async function saveTemplate() {
+    setBusy(true);
+    try {
+      const payload = { name: templateName.trim(), body: templateBody };
+      const saved =
+        activeTemplateId && templateIsMine
+          ? await api.updateTemplate(activeTemplateId, payload)
+          : await api.createTemplate(payload);
+
+      setActiveTemplateId(saved.id);
+      setBanner({ kind: "info", lines: [`Saved script template "${saved.name}".`] });
+      publishLocation(
+        { configId: activeConfigId, datasetId: dataset?.id ?? null, templateId: saved.id, tab: "scripts" },
+        saved.name,
+      );
+      await refreshLists();
+    } catch (error) {
+      fail(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeTemplate(id: string) {
+    const template = templates.find(entry => entry.id === id);
+    if (!window.confirm(`Delete the script template "${template?.name ?? id}"? This cannot be undone.`)) return;
+
+    try {
+      await api.deleteTemplate(id);
+      if (id === activeTemplateId) startNewTemplate();
+      await refreshLists();
+    } catch (error) {
+      fail(error);
+    }
+  }
+
   /**
    * Restores whatever the URL asks for — on first paint, and again whenever
    * the back button rewrites it.
@@ -412,19 +546,25 @@ export function App() {
       setView(state.view);
       if (state.configId) void openConfig(state.configId, { push: false });
       if (state.datasetId) void openDatasetById(state.datasetId, { push: false });
+      if (state.templateId) void openTemplateById(state.templateId, { push: false });
       document.title = titleFor(state);
     };
 
     restore();
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-    // `openConfig` and `openDatasetById` are stable enough for this to run on
-    // mount and on every back/forward, which is exactly when it should.
-  }, [openConfig, openDatasetById]);
+    // These three are stable enough for this to run on mount and on every
+    // back/forward, which is exactly when it should.
+  }, [openConfig, openDatasetById, openTemplateById]);
 
   const changeTab = (next: Tab) => {
     setTab(next);
-    publishLocation({ configId: activeConfigId, datasetId: dataset?.id ?? null, tab: next }, name);
+    // The scripts pane is about the template, so that is the name the title
+    // and the breadcrumb take while it is in front.
+    publishLocation(
+      { configId: activeConfigId, datasetId: dataset?.id ?? null, tab: next },
+      next === "scripts" ? templateName.trim() || undefined : name,
+    );
   };
 
   /**
@@ -668,6 +808,15 @@ export function App() {
 
   /* --------------------------------- UI ---------------------------------- */
 
+  /**
+   * Whether Save will edit the template on screen or fork it.
+   *
+   * An unsaved one is always yours; a stored one is whatever the write ACL
+   * said when the record came down.
+   */
+  const activeTemplate = templates.find(template => template.id === activeTemplateId) ?? null;
+  const templateIsMine = !activeTemplate || activeTemplate.canWrite;
+
   /** Brings the nav back. Only shown when it is away, so it never duplicates
    *  the collapse button that lives in the sidebar's own header. */
   const expandSidebarButton = preferences.sidebarCollapsed && (
@@ -769,8 +918,10 @@ export function App() {
       {!preferences.sidebarCollapsed && (
         <Sidebar
           configs={configs}
+          templates={templates}
           datasets={datasets}
           activeConfigId={activeConfigId}
+          activeTemplateId={activeTemplateId}
           activeDatasetId={dataset?.id ?? null}
           storage={storage}
           me={window.NOW?.user?.displayName ?? "You"}
@@ -788,6 +939,9 @@ export function App() {
               )
               .catch(fail)
           }
+          onNewTemplate={startNewTemplate}
+          onLoadTemplate={template => applyTemplate(template)}
+          onDeleteTemplate={removeTemplate}
           onLoadDataset={record => void openDatasetById(record.id)}
           onDeleteDataset={removeDataset}
           collapsedSections={preferences.collapsedNavSections}
@@ -805,6 +959,7 @@ export function App() {
         <SettingsPanel
           preferences={preferences}
           saveState={saveState}
+          templates={templates}
           storage={storage}
           onChange={updatePreferences}
           onReset={resetPreferences}
@@ -954,6 +1109,7 @@ export function App() {
             >
               {tabButton("import", <Braces className="size-4" />, "Import structure")}
               {tabButton("schema", <ListTree className="size-4" />, "Schema", fields.length)}
+              {tabButton("scripts", <FileCode2 className="size-4" />, "Scripts", templates.length)}
             </div>
 
             <div
@@ -962,7 +1118,19 @@ export function App() {
               aria-labelledby={`tab-${tab}`}
               className="min-h-0 flex-1 overflow-auto p-4"
             >
-              {tab === "import" ? (
+              {tab === "scripts" ? (
+                <ScriptTemplatePanel
+                  name={templateName}
+                  body={templateBody}
+                  activeId={activeTemplateId}
+                  owned={templateIsMine}
+                  busy={busy}
+                  onNameChange={setTemplateName}
+                  onBodyChange={setTemplateBody}
+                  onSave={() => void saveTemplate()}
+                  onNew={startNewTemplate}
+                />
+              ) : tab === "import" ? (
                 <ImportPanel
                   onInferred={(inferred, notes, detected) => {
                     setFields(inferred);
@@ -1051,6 +1219,8 @@ export function App() {
                   rows={previewRows}
                   truncated={truncated}
                   preferredFormat={preferences.defaultExportFormat}
+                  templates={templates}
+                  preferredTemplateId={preferences.defaultTemplateId}
                   onCollapse={() => setDataPaneOpen(false)}
                   onError={message => setBanner({ kind: "error", lines: [message] })}
                 />

@@ -30,10 +30,11 @@ parts that touched a runtime did not port at all.
 | --- | --- | --- |
 | `infer.ts` (type inference) | `generate.ts`'s value layer | `node:vm` enum snippets |
 | `formula.ts` (formula + condition evaluators) | `db.ts` → GlideRecord | The custom sharing model |
-| `types.ts` (the `FieldType` union, ~195 generators) | `index.ts` → `RestApi()` | Auth, sessions, API keys |
+| `types.ts` (the `FieldType` union, ~215 generators) | `index.ts` → `RestApi()` | Auth, sessions, API keys |
 | `export.ts` (CSV / JSON / SQL serialisers) | `script.ts` → named choice sources | Telegram notifications |
 | `rows.ts` (the flatten/unflatten row model) | `App.tsx` → a UI Page with a URL | The CLI, OpenAPI generation, notes |
-| `components/ui/`, `FieldRow`, `TypeSelect`, `PreviewTable` | `lib/api.ts` → the scoped REST API | Sharing, script templates, the dashboard |
+| `components/ui/`, `FieldRow`, `TypeSelect`, `PreviewTable` | `lib/api.ts` → the scoped REST API | Sharing, the dashboard |
+| `scriptTemplate.ts`, `ScriptTemplatePanel`, `CodeEditor` | `script_templates` → a scoped table | |
 
 The original source is kept under `legacy/` rather than deleted — this repository has no git
 history, so it is the only copy.
@@ -67,6 +68,31 @@ expander and the `resolveOrder` dependency sort are all pure functions over a ra
 are most of the file's genuine complexity and none of it was at risk. `tests/generate.test.ts`
 asserts all of it, including that a given seed still replays byte-identically.
 
+### The ServiceNow field types
+
+The one group the Bun app could not have had. `insertRows` writes straight into a real table, so
+the generators that matter most here are the ones whose output a platform column will actually
+accept:
+
+- **Choice fields** — `incidentState`, `taskPriority`, `taskImpact`, `taskUrgency`, `taskCategory`,
+  `contactType`, `changeType`, `changeRisk`, `approvalState`. Each pool carries both halves of the
+  choice and `variant` picks one: `value` (the default, what a record stores and what an insert
+  needs) or `label` (what a list shows). Values are strings even when they look numeric, because
+  that is how the platform returns every field. The pools are weighted, so a thousand generated
+  incidents look like a queue rather than a uniform draw — and the draw happens once either way, so
+  flipping `variant` re-labels the same rows instead of generating different ones.
+- **Platform formats** — `glideDateTime` (`YYYY-MM-DD HH:mm:ss`, UTC, the only shape a
+  `glide_date_time` takes, so it has no `format` option), `glideDuration` (an offset from the epoch,
+  so two days three hours is `1970-01-03 03:00:00`; `variant: "human"` gives `2 Days 3 Hours`),
+  `encodedQuery`, `appScope`, `cmdbClass`, `nowRole`, `nowUserId` (`first.last`, the stock
+  `user_name` shape, and it honours `derivesFrom` like `email` does).
+- **Free text with the right flavour** — `shortDescription`, `assignmentGroup`, `closeCode`,
+  `ciName`.
+
+`infer` knows these by column name, so a sample row with `short_description`, `priority`,
+`opened_at` and `assignment_group` in it comes back as an incident-shaped schema rather than a
+paragraph, an enum and two dates.
+
 ---
 
 ## Architecture
@@ -78,7 +104,7 @@ Two halves the Bun version kept together.
 ```
 Paste JSON / TS / DDL  →  inference  →  x_..._config + x_..._field
                                               │
-                                              ├─→ x_..._dataset (+ attachment)
+                                              ├─→ x_..._dataset (rows_json)
                                               └─→ a real table, via GlideRecord
 ```
 
@@ -90,7 +116,7 @@ Paste JSON / TS / DDL  →  inference  →  x_..._config + x_..._field
 ```
 src/
   fluent/              .now.ts metadata definitions
-    tables/            config, field, mapping, dataset
+    tables/            config, field, mapping, dataset, template
     acls/ roles/       access control
     rest/ jobs/        the scripted API and the queue-draining job
     script-includes/   the named entry points
@@ -132,17 +158,26 @@ Two things stay JSON, both deliberately:
   into columns would produce a table that is mostly null.
 - `config.metadata` — free-form key/value pairs describing what a schema is for.
 
-`field.field_type` is a **String, not a ChoiceColumn**. The `FieldType` union has ~195 members;
-expressing that as choices is 195 lines of Fluent kept in lockstep by hand, and every added
+`field.field_type` is a **String, not a ChoiceColumn**. The `FieldType` union has ~215 members;
+expressing that as choices is 215 lines of Fluent kept in lockstep by hand, and every added
 generator becomes a schema migration. The union stays the single source of truth in the module
 layer, and a business rule validates against `FIELD_TYPE_SET` on write — so adding a generator
 makes it valid automatically.
 
-**Rows live in an attachment, not a column.** A 64 MB value in a `JsonColumn` is a performance
-problem on every read of that record; an attachment costs nothing until asked for, and is already
-a file the platform will serve to exactly the people who can read the dataset.
+**Rows live in `rows_json` on the dataset record**, as the JSON string the export and the script
+renderer both serve verbatim. The column carries the `json_view` dictionary attribute, so opening
+the record in a platform form shows formatted JSON rather than one unbroken line, and the record's
+own read ACL is the only thing guarding the data. The cost is that a query has no column
+projection: listing datasets reads every dataset's rows with it. `DATASET_JSON_LIMIT` in
+`src/server/db/tables.ts` mirrors the column's length, and a run whose JSON would not fit is failed
+with that as the reason rather than stored truncated.
 
-`x_..._user_pref` is the fifth table and belongs to nothing else: one row per person, holding how
+`x_..._template` is a script template: JavaScript with `${GENERATED_DATASET}` and a dozen other
+placeholders that a run is substituted into. Its body is a `ScriptColumn`, so the record opened in
+a platform form gets a script editor, and it references nothing — the same template renders
+whichever dataset it is pointed at. See [Script templates](#script-templates).
+
+`x_..._user_pref` is the last table and belongs to nothing else: one row per person, holding how
 they like the workspace arranged. It is columns rather than a blob for the same reason the field
 list is a child table — see [Preferences](#preferences) for why it is a table of its own rather
 than `sys_user_preference` or a column on `sys_user`.
@@ -181,7 +216,7 @@ Two differences from PocketBase worth knowing:
 
 ## The REST API
 
-Six route groups, not the Bun server's thirty-six — most of those existed to feed the SPA, and the
+Seven route groups, not the Bun server's thirty-six — most of those existed to feed the SPA, and the
 page that replaced it needs two of them. Base path `/api/x_1040823_ddg_now/ddg`.
 
 | Route | Method | Purpose |
@@ -191,10 +226,11 @@ page that replaced it needs two of them. Base path `/api/x_1040823_ddg_now/ddg`.
 | `/config/{configId}/generate` | POST | Run a generation |
 | `/dataset` · `/dataset/{id}` | GET | Dataset metadata and run state |
 | `/dataset/{id}/export` | GET | The rows themselves |
+| `/dataset/{id}/script` | GET | That run rendered into a script template |
+| `/template` · `/template/{id}` | GET · POST · PUT · DELETE | Script templates |
 | `/preferences` | GET · PUT | The caller's own workspace preferences |
 
-These are also what the UI Page talks to — it calls them only for inference and preview, and uses
-platform components for everything record-shaped.
+These are also what the UI Page talks to — every read and write it makes is one of these routes.
 
 ```bash
 # infer
@@ -206,7 +242,7 @@ curl -u "$SN_USER:$SN_PASS" -X POST \
 # generate — 200 with a finished dataset, or 202 with one to poll
 curl -u "$SN_USER:$SN_PASS" -X POST \
   "$SN_HOST/api/x_1040823_ddg_now/ddg/config/<sys_id>/generate" \
-  -H 'Content-Type: application/json' -d '{"rowCount": 100, "format": "csv"}'
+  -H 'Content-Type: application/json' -d '{"rowCount": 100}'
 
 # a preview stores nothing
 curl ... -d '{"preview": true, "rowCount": 5}'
@@ -216,6 +252,10 @@ curl ... -d '{"table": "incident", "rowCount": 50, "mapping": {"short_descriptio
 
 # the rows
 curl -u "$SN_USER:$SN_PASS" "$SN_HOST/api/x_1040823_ddg_now/ddg/dataset/<id>/export"
+
+# the same rows dropped into a saved script template, served as a .js file
+curl -u "$SN_USER:$SN_PASS" \
+  "$SN_HOST/api/x_1040823_ddg_now/ddg/dataset/<id>/script?template=<template_sys_id>"
 
 # preferences — always the caller's own; a PUT is a patch, and the reply is
 # what was kept after clamping
@@ -285,6 +325,51 @@ every source here blocks, so there is nothing to await.
 
 ---
 
+## Script templates
+
+A template is JavaScript with placeholders that a finished run is substituted into, so rows can be
+dropped straight into a script you already have — a `GlideRecord` seeding loop, a fixture file, a
+migration. Written in the **Scripts** tab, rendered from the picker beside the preview table, and
+served by `GET /dataset/{id}/script?template=<sys_id>` as a `.js` download.
+
+```js
+var source = { config: ${CONFIG_NAME}, rows: ${ROW_COUNT}, generatedAt: ${GENERATED_AT} };
+var records = ${GENERATED_DATASET};
+
+records.forEach(function (record) {
+  var gr = new GlideRecord('incident');
+  gr.initialize();
+  gr.setValue('short_description', record.short_description);
+  gr.insert();
+});
+```
+
+Thirteen placeholders: the rows themselves, and what the run knew about itself — its name, id, row
+and field counts, column names and timestamp, plus the configuration's name, id, seed, locale,
+schema and metadata. Three rules hold the feature together, and each one is a bug if dropped:
+
+- **Every placeholder expands to a JavaScript *literal*,** quotes and brackets included, so a
+  template never has to quote a substitution and an apostrophe in a dataset name can never end the
+  string it was pasted into. A configuration that has since been deleted renders as `null`, which
+  is still a literal a script can test.
+- **One substitution pass, with a replacement function.** A generated row can contain anything,
+  including the text `${ROW_COUNT}` — a second pass would substitute into the data, and a string
+  replacement would let `$&` and `$'` in a row act as replacement patterns.
+- **The rows go in as the stored column, byte for byte.** A script and a download of the same
+  dataset can never disagree about what was generated, which also means switching templates costs
+  a request rather than a run.
+
+`src/server/lib/scriptTemplate.ts` holds all of that, is Glide-free, and is imported by both the
+render endpoint and the editor — so the chips in the palette, the tokens the highlighter colours
+and the tokens the server substitutes are one list. `tests/scriptTemplate.test.ts` covers the
+three rules above.
+
+Read is app-wide for the role and writes are the creator's, the same rule configurations get;
+`canWrite` rides down on the record so **Save** on somebody else's template reads "Save my copy"
+and forks it, rather than the page guessing at an ACL the platform has already evaluated.
+
+---
+
 ## Codegen: inferred schema → Fluent table
 
 ```bash
@@ -294,7 +379,7 @@ npm run codegen -- --name orders --from ./schema.sql --write
 
 Runs **locally, never on the instance** — it emits `.now.ts` source, which the build compiles.
 
-~195 generators collapse onto about a dozen column types. Two transformations the emitter has to do
+~215 generators collapse onto about a dozen column types. Two transformations the emitter has to do
 that the Bun app got for free:
 
 - **Column names need normalising** and checking for collisions — `address.city` and `address_city`
@@ -361,8 +446,8 @@ auto-generated and **belongs in version control**.
 npm test
 ```
 
-38 tests, run on Node against the module source. They cover the phase-two go/no-go the porting plan
-called for — a given seed produces byte-identical output — plus every one of the ~195 field types,
+70 tests, run on Node against the module source. They cover the phase-two go/no-go the porting plan
+called for — a given seed produces byte-identical output — plus every one of the ~215 field types,
 the check digits, the distributions, the dependency ordering, inference, and the serialisers.
 
 They cannot run the Glide-dependent layers (`db`, `choices`, `run`). `tools/glide-stub.mjs` makes
@@ -392,7 +477,8 @@ tokens, the same three-pane workspace.
 ┌──────────┬────────────────────────────────────────────┐
 │ Sidebar  │ name · rows · seed · locale   Save Generate│
 │  configs ├──────────────────┬─────────────────────────┤
-│  datasets│ [Import][Schema] │ PreviewTable            │
+│  scripts │ [Import][Schema] │ PreviewTable            │
+│  datasets│ [Scripts]        │ Script ▾ · CSV JSON SQL │
 │          │ ── FieldRow ──── │  1 │ email │ status     │
 │  ⌘K      │ ── FieldRow ──── │  2 │ …     │ …          │
 │  + New   │ ══ SplitHandle ══│ → RowDetail             │
@@ -400,11 +486,12 @@ tokens, the same three-pane workspace.
 ```
 
 What is still the Bun app, essentially untouched: `FieldRow` (the 1,000-line schema editor and the
-hardest part of the UI), `TypeSelect` (a searchable picker over ~195 generators), `PreviewTable`
+hardest part of the UI), `TypeSelect` (a searchable picker over ~215 generators), `PreviewTable`
 and `RowDetail`, `SplitHandle`, `ImportPanel`, `MetadataEditor`, and the `components/ui`
 primitives. `SettingsPanel` is back, trimmed to the preferences this application actually has.
+`ScriptTemplatePanel` and `CodeEditor` came across too, and the Scripts tab with them.
 What is gone with the features behind it: the sign-in screen, the share dialog, the API-key
-preview, the dashboard, and the mappings, scripts and notes tabs. What is new: the URL, and where
+preview, the dashboard, and the mappings and notes tabs. What is new: the URL, and where
 preferences live.
 
 ### Stack
@@ -432,9 +519,11 @@ src/client/
   generated/app.css    the compiled output (gitignored)
   components/ui/       button, input, label, popover, select, textarea
   components/app/      Sidebar, FieldRow, TypeSelect, PreviewTable, RowDetail,
-                       ImportPanel, MetadataEditor, SettingsPanel, SplitHandle
+                       ImportPanel, MetadataEditor, ScriptTemplatePanel,
+                       CodeEditor, SettingsPanel, SplitHandle
   lib/                 api.ts, navigation.ts, navSearch.ts, configFile.ts,
-                       metadata.ts, clipboard.ts, timeAgo.ts, utils.ts
+                       metadata.ts, codeEdit.ts, highlight.ts, clipboard.ts,
+                       timeAgo.ts, utils.ts
 src/fluent/ui-pages/studio.now.ts
 ```
 
@@ -467,9 +556,9 @@ npm run dev     # watch the client and push on save; Fluent changes still need b
 component that calls `fetch` directly is a bug.
 
 Dropping the platform's record components meant the page needed real read and write endpoints, so
-`src/fluent/rest/api.now.ts` grew from six routes to thirteen: list and read configurations, save
-one, delete one, delete a dataset, read a stored run's rows back as JSON, and preview from a field
-list sent inline. They are the *same* routes a CI pipeline calls. Giving the page a private set
+`src/fluent/rest/api.now.ts` grew from six routes to twenty-one: list and read configurations, save
+one, delete one, delete a dataset, read a stored run's rows back as JSON, preview from a field
+list sent inline, and the five that keep script templates plus the one that renders into them. They are the *same* routes a CI pipeline calls. Giving the page a private set
 would have been two paths to the same records, drifting.
 
 Two details worth knowing:
@@ -479,15 +568,15 @@ Two details worth knowing:
   `summariseFields` produces both in a single `GlideRecordSecure` pass. Opening a configuration is
   a separate fetch. The Bun app's list came back with every schema inline because each one was a
   single JSON column; the child table is what changed that.
-- **Runs are stored as JSON.** It is the only format the rows can be read back out of — CSV and
-  SQL are lossy about types — and `GET /dataset/{id}/export?format=csv` re-serialises on demand,
-  so the preview table costs nothing.
+- **Runs are stored as JSON, and only as JSON.** It is the only format the rows can be read back
+  out of — CSV and SQL are lossy about types — and `GET /dataset/{id}/export?format=csv`
+  serialises on demand, so the preview table costs nothing and a run takes no `format` at all.
 
 ### Routing and the Polaris frame
 
 The Bun app kept which schema was open in React state and nothing else; it was one page on a
 server of its own. On the platform that is not enough, so every state worth returning to has a
-URL: `?config=<sys_id>&dataset=<sys_id>&tab=schema`. `URLSearchParams`, no router library, no hash
+URL: `?config=<sys_id>&dataset=<sys_id>&template=<sys_id>&tab=schema`. `URLSearchParams`, no router library, no hash
 routing.
 
 The part that is easy to leave out: a UI Page opened from the navigator runs **inside the Polaris
@@ -509,7 +598,7 @@ takes the preferences with it instead of leaving a column behind on a core table
 
 **Real columns, not a blob.** Same judgement as the field list in `config.now.ts`: a fixed, known
 set of values belongs in columns, where list views, filtering and a form come free. `FieldOptions`
-stays JSON because it is genuinely heterogeneous; eight named preferences are not.
+stays JSON because it is genuinely heterogeneous; nine named preferences are not.
 
 Two rules the design leans on:
 
@@ -588,7 +677,7 @@ curl -s -u "$SN_USER:$SN_PASS" -X POST \
 # 3. a stored run, then the rows
 curl -s -u "$SN_USER:$SN_PASS" -X POST \
   "$SN_HOST/api/x_1040823_ddg_now/ddg/config/06e26530e761410cad1987d07ddebcb0/generate" \
-  -H 'Content-Type: application/json' -d '{"rowCount":50,"format":"csv"}'
+  -H 'Content-Type: application/json' -d '{"rowCount":50}'
 ```
 
 Step 2 is the real one. Run it twice: the same seed must produce the same rows, and the rows must
@@ -604,5 +693,6 @@ https://dev295575.service-now.com/x_1040823_ddg_now_studio.do
 Worth checking specifically, because they are the parts most likely to be wrong and least likely
 to fail loudly: that **Import a structure** returns a field list for pasted JSON; that
 **Preview 10 rows** on the demo configuration renders a table; that the configuration form shows
-its **Schema Field** related list; and that navigating between views updates the breadcrumb when
-the page is opened from the navigator rather than directly.
+its **Schema Field** related list; that saving a script template and pressing **Script** beside a
+stored run downloads a file with the rows substituted in; and that navigating between views
+updates the breadcrumb when the page is opened from the navigator rather than directly.

@@ -22,12 +22,15 @@
  *     version. `FieldOptions` legitimately stays JSON — it is a genuinely
  *     heterogeneous bag, and flattening 40-odd optional properties into
  *     columns would produce a table that is mostly null.
- *   - Rows no longer live in a column. A dataset record carries metadata and
- *     the rows themselves are an attachment. A 64 MB value in a JsonColumn is
- *     a performance problem on every read of that record.
+ *   - Rows live in `rows_json` on the dataset record, as JSON text. The Bun
+ *     app stored them as a JSON column too, so this is the shape that came
+ *     across; what the platform adds is the `json_view` attribute, which makes
+ *     the column readable on the form. It is not free — a query has no column
+ *     projection, so listing datasets reads every dataset's rows — and
+ *     `DATASET_JSON_LIMIT` is the ceiling that keeps it bounded.
  */
 
-import { GlideRecord, GlideRecordSecure, GlideSysAttachment, gs } from '@servicenow/glide'
+import { GlideRecordSecure, gs } from '@servicenow/glide'
 import type { Field, FieldMapping, FieldOptions, FieldType, ReferenceMode, SchemaConfig, Dataset, DatasetState } from '../lib/types.ts'
 import { CONFIG_TABLE, DATASET_TABLE, FIELD_TABLE, MAPPING_TABLE, MAX_ROWS_PROPERTY, SYNC_ROW_LIMIT_PROPERTY } from './tables.ts'
 
@@ -311,11 +314,7 @@ export function listDatasets(configId?: string, limit = 100): Dataset[] {
     return datasets
 }
 
-/**
- * Deletes a dataset. Its attachment goes with it — an attachment belongs to
- * the record it hangs off, so the platform removes it on the delete rather
- * than leaving a file pointing at a `table_sys_id` that resolves to nothing.
- */
+/** Deletes a dataset. Its rows go with it: they are a column on the record. */
 export function deleteDataset(id: string): boolean {
     const gr = new GlideRecordSecure(DATASET_TABLE)
     if (!gr.get(id)) return false
@@ -360,47 +359,30 @@ export function finishDataset(id: string, rowCount: number, fieldCount: number):
     return Boolean(gr.update())
 }
 
-/* ------------------------------- attachments ----------------------------- */
+/* ---------------------------------- rows --------------------------------- */
 
 /**
- * Writes a run's rows to the dataset record as an attachment.
+ * Writes a run's rows onto the dataset record as JSON text.
  *
- * `GlideSysAttachment.write` takes a `GlideRecord`, not a `GlideRecordSecure`,
- * so the record is re-read through the plain class — after a secure `get()`
- * has already established that the caller may see it. The attachment itself
- * inherits the record's ACLs, which is what makes this the download story:
- * an attachment is already a file the platform will serve, to exactly the
- * people who could read the record it hangs off.
+ * Through `GlideRecordSecure` like every other write here, so the caller's own
+ * write ACL decides — which is also what makes the rows readable to exactly
+ * the people who can read the record, with no second object to secure.
+ *
+ * The caller checks the payload against `DATASET_JSON_LIMIT` first; a string
+ * past the column's length would be truncated by the platform, and truncated
+ * JSON does not parse.
  */
-export function writeDatasetAttachment(datasetId: string, fileName: string, contentType: string, body: string): string | null {
-    const guard = new GlideRecordSecure(DATASET_TABLE)
-    if (!guard.get(datasetId)) return null
-    if (!guard.canWrite()) return null
-
-    const target = new GlideRecord(DATASET_TABLE)
-    if (!target.get(datasetId)) return null
-
-    const attachment = new GlideSysAttachment()
-    return attachment.write(target, fileName, contentType, body)
+export function writeDatasetRows(datasetId: string, rowsJson: string): boolean {
+    const gr = new GlideRecordSecure(DATASET_TABLE)
+    if (!gr.get(datasetId)) return false
+    if (!gr.canWrite()) return false
+    gr.setValue('rows_json', rowsJson)
+    return Boolean(gr.update())
 }
 
-/** The most recent attachment on a dataset, as text. */
-export function readDatasetAttachment(datasetId: string): { fileName: string; body: string } | null {
-    const guard = new GlideRecordSecure(DATASET_TABLE)
-    if (!guard.get(datasetId)) return null
-
-    // Queried through a `string` table name so the record stays untyped: the
-    // generated `sys_attachment` table type does not model the columns read
-    // here, and `getContent` wants a plain `GlideRecord` regardless.
-    const attachmentTable: string = 'sys_attachment'
-    const found = new GlideRecord(attachmentTable)
-    found.addQuery('table_name', DATASET_TABLE)
-    found.addQuery('table_sys_id', datasetId)
-    found.orderByDesc('sys_created_on')
-    found.setLimit(1)
-    found.query()
-    if (!found.next()) return null
-
-    const attachment = new GlideSysAttachment()
-    return { fileName: found.getValue('file_name') ?? 'dataset', body: attachment.getContent(found) }
+/** A dataset's stored rows, as the JSON string that was written. */
+export function readDatasetRows(datasetId: string): string | null {
+    const gr = new GlideRecordSecure(DATASET_TABLE)
+    if (!gr.get(datasetId)) return null
+    return gr.getValue('rows_json') || null
 }

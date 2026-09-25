@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Database, Download, FileJson, Maximize2, PanelRightClose, Table2 } from "lucide-react";
+import { Check, Copy, Database, Download, FileCode2, FileJson, Maximize2, PanelRightClose, Table2 } from "lucide-react";
 import { Button } from "../ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { RowDetail } from "./RowDetail";
 import { api, type ExportFormat } from "../../lib/api";
 import { copyToClipboard } from "../../lib/clipboard";
 import { valueToText } from "../../../server/lib/rows";
 import { cn } from "../../lib/utils";
 import type { Dataset } from "../../../server/lib/types";
+import type { ScriptTemplate } from "../../../server/lib/scriptTemplate";
 
 type Props = {
   dataset: Dataset | null;
@@ -14,6 +16,10 @@ type Props = {
   truncated: boolean;
   /** The format offered first. CSV, unless someone has picked otherwise. */
   preferredFormat: ExportFormat;
+  /** Every template this account can render into, for the picker below. */
+  templates: ScriptTemplate[];
+  /** The account's preferred template; empty means the first one. */
+  preferredTemplateId: string;
   /** Folds the pane away. Absent when the pane cannot be collapsed. */
   onCollapse?: () => void;
   onError?: (message: string) => void;
@@ -64,9 +70,10 @@ function useCopyAction(onError?: (message: string) => void) {
  * the export endpoint, so the clipboard holds every row rather than the
  * truncated preview window.
  *
- * All three formats come off one stored file. The run writes JSON and the
- * export endpoint re-serialises it into CSV or SQL on request — which is why
- * asking for a format here never means generating the dataset again.
+ * All three formats come off one stored string. The run writes JSON to the
+ * dataset record and the export endpoint serialises it into CSV or SQL on
+ * request — which is why asking for a format here never means generating the
+ * dataset again.
  */
 function ExportButtons({
   dataset,
@@ -133,7 +140,94 @@ function ExportButtons({
   return <div className="flex flex-wrap items-center gap-2">{order.map(format => groups[format])}</div>;
 }
 
-export function PreviewTable({ dataset, rows, truncated, preferredFormat, onCollapse, onError }: Props) {
+/**
+ * Renders the dataset into a saved script template.
+ *
+ * The template is picked here rather than in the editor so a single dataset
+ * can be dropped into several scripts without being generated again — the
+ * rendering endpoint reads the stored rows off the dataset record, so
+ * switching templates costs nothing but a request.
+ *
+ * Nothing is drawn until there is a template to render into: the whole control
+ * would otherwise be an empty picker beside an export that works.
+ */
+function ScriptButtons({
+  dataset,
+  templates,
+  preferredTemplateId,
+  onError,
+}: {
+  dataset: Dataset;
+  templates: ScriptTemplate[];
+  preferredTemplateId: string;
+  onError?: (message: string) => void;
+}) {
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const { copied, copying, copy } = useCopyAction(onError);
+
+  // Keep the selection valid as templates are added, renamed or deleted — and
+  // fall back through the account's default before the first in the list, so a
+  // template deleted since that preference was set is simply ignored.
+  const selected =
+    templates.find(t => t.id === templateId) ?? templates.find(t => t.id === preferredTemplateId) ?? templates[0];
+  if (!selected) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select value={selected.id} onValueChange={setTemplateId}>
+        <SelectTrigger className="h-8 w-32 @lg:w-44" aria-label="Script template">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {templates.map(template => (
+            <SelectItem key={template.id} value={template.id}>
+              {template.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <div className="flex items-center overflow-hidden rounded-md border bg-card shadow-xs">
+        <Button variant="ghost" size="sm" asChild className="rounded-none">
+          <a
+            href={api.scriptUrl(dataset.id, selected.id)}
+            download
+            title={`Download this dataset rendered into "${selected.name}"`}
+          >
+            <FileCode2 />
+            <span className="hidden @lg:inline">Script</span>
+          </a>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-none border-l"
+          onClick={() => copy(() => api.scriptText(dataset.id, selected.id), "Could not render the script.")}
+          disabled={copying}
+          aria-label="Copy the rendered script to clipboard"
+          title={`Copy this dataset rendered into "${selected.name}"`}
+        >
+          {copied ? (
+            <Check className="text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <Copy className={cn(copying && "animate-pulse")} />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function PreviewTable({
+  dataset,
+  rows,
+  truncated,
+  preferredFormat,
+  templates,
+  preferredTemplateId,
+  onCollapse,
+  onError,
+}: Props) {
   /** Index of the record the inspector is showing, or null when it is closed. */
   const [openRow, setOpenRow] = useState<number | null>(null);
 
@@ -198,8 +292,17 @@ export function PreviewTable({ dataset, rows, truncated, preferredFormat, onColl
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Only a stored run has a file to serve. A preview lives in this
-              tab and nowhere else, which is the point of it. */}
+          {/* Only a stored run has a file to serve — and a script to render.
+              A preview lives in this tab and nowhere else, which is the point
+              of it. */}
+          {dataset && (
+            <ScriptButtons
+              dataset={dataset}
+              templates={templates}
+              preferredTemplateId={preferredTemplateId}
+              onError={onError}
+            />
+          )}
           {dataset && <ExportButtons dataset={dataset} preferredFormat={preferredFormat} onError={onError} />}
           {collapseButton}
         </div>

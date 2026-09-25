@@ -37,12 +37,21 @@ test('a normalized set is always complete', () => {
 })
 
 test('unknown keys are dropped rather than carried', () => {
-    const result = normalizePreferences({ theme: 'dark', accentColor: 'violet', defaultTemplateId: 'tpl_1' })
+    const result = normalizePreferences({ theme: 'dark', accentColor: 'violet' })
     assert.equal(result.theme, 'dark')
-    // The accent picker and script templates did not come across; a set written
-    // by the Bun app must not smuggle them back in.
+    // The accent picker did not come across; a set written by the Bun app must
+    // not smuggle it back in.
     assert.equal('accentColor' in result, false)
-    assert.equal('defaultTemplateId' in result, false)
+})
+
+test('the default template has to look like a sys_id', () => {
+    // A PocketBase id from an exported Bun preference set is not one, and
+    // neither is anything an admin might type into the form by hand.
+    assert.equal(normalizePreferences({ defaultTemplateId: 'tpl_1' }).defaultTemplateId, '')
+    assert.equal(normalizePreferences({ defaultTemplateId: 'a'.repeat(32) }).defaultTemplateId, 'a'.repeat(32))
+    // Not checked against the templates that exist: the picker falls back, so
+    // a sys_id that no longer resolves is harmless rather than invalid.
+    assert.equal(normalizePreferences({ defaultTemplateId: '0'.repeat(32) }).defaultTemplateId, '0'.repeat(32))
 })
 
 test('numbers are clamped into range, not rejected', () => {
@@ -96,11 +105,11 @@ test('the folded nav sections read from an array or from the column', () => {
 })
 
 test('unknown nav sections are dropped and duplicates collapsed', () => {
-    // "templates" and "notes" were lists in the Bun app's nav and are not here.
+    // "notes" was a list in the Bun app's nav and is not one here.
     const result = normalizePreferences({
         collapsedNavSections: ['configs', 'templates', 'notes', 'configs'],
     })
-    assert.deepEqual(result.collapsedNavSections, ['configs'])
+    assert.deepEqual(result.collapsedNavSections, ['configs', 'templates'])
     assert.ok(result.collapsedNavSections.every((section) => NAV_SECTIONS.includes(section)))
 })
 

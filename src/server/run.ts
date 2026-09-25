@@ -5,15 +5,16 @@
  * those rows — so the REST endpoint, the scheduled job and a UI Action all
  * take the same path rather than each assembling it slightly differently.
  *
- * The Bun app ran every generation inside the request that asked for it, held
- * the whole result in memory, and stored it as a 64 MB JSON column. None of
- * those three survive the move:
+ * The Bun app ran every generation inside the request that asked for it and
+ * held the whole result in memory. Here:
  *
  *   - Anything past a few thousand rows is enqueued as a job. A synchronous
  *     100k-row generation inside an interactive transaction will hit the
  *     platform's transaction quota. Small runs — a ten-row preview on a form
  *     — stay synchronous, because making those asynchronous would be silly.
- *   - Rows are written to an attachment, not a column.
+ *   - Rows are written as JSON text to the dataset record's `rows_json`
+ *     column, which is bounded: a run whose JSON would not fit fails with
+ *     that as the reason rather than storing a truncated string.
  *   - A target-table run streams into `GlideRecord` inserts through
  *     `generateInto` rather than materialising the array first.
  */
@@ -23,17 +24,16 @@ import { datasetName } from './lib/datasetName.ts'
 import type { Row } from './lib/rows.ts'
 import type { Field, SchemaConfig } from './lib/types.ts'
 import { rowColumns } from './lib/types.ts'
-import { createDataset, finishDataset, getConfig, maxRows, setDatasetState, syncRowLimit, writeDatasetAttachment } from './db/db.ts'
+import { createDataset, finishDataset, getConfig, maxRows, setDatasetState, syncRowLimit, writeDatasetRows } from './db/db.ts'
+import { DATASET_JSON_LIMIT } from './db/tables.ts'
 import type { ChoiceSourceOptions } from './generate/choices.ts'
 import { generateInto, generateRows, resolveChoiceScripts } from './generate/generate.ts'
 import { insertRows, type InsertOptions, type InsertReport } from './generate/insert.ts'
-import { serialize, type ExportFormat } from './export/export.ts'
+import { toJson } from './export/export.ts'
 
 export type RunOptions = ChoiceSourceOptions & {
     /** Override the configuration's stored row count for this run. */
     rowCount?: number
-    /** Serialisation of the stored rows. CSV unless asked otherwise. */
-    format?: ExportFormat
 }
 
 export type RunResult =
@@ -52,7 +52,7 @@ function prepare(config: SchemaConfig, options: RunOptions): { fields: Field[]; 
  *
  * This is the preview path — a handful of rows to show on a form, or the body
  * of a `/infer`-then-`/generate` round trip in a script. It deliberately has
- * no dataset record and no attachment, so nothing accumulates from looking.
+ * no dataset record and nothing stored, so nothing accumulates from looking.
  */
 export function previewRows(configId: string, rowCount: number, options: RunOptions = {}): Row[] | null {
     const config = getConfig(configId)
@@ -137,32 +137,46 @@ export function runToDataset(configId: string, options: RunOptions = {}): RunRes
         return { ok: true, datasetId, rowCount: prepared.count, state: 'queued' }
     }
 
-    const outcome = fillDataset(datasetId, config, prepared.fields, prepared.count, options.format ?? 'csv')
+    const outcome = fillDataset(datasetId, config, prepared.fields, prepared.count)
     if (!outcome.ok) return outcome
     return { ok: true, datasetId, rowCount: outcome.rowCount, state: 'complete' }
 }
 
 /**
- * Generates a run's rows and attaches them to an existing dataset record.
+ * Generates a run's rows and writes them onto an existing dataset record.
  *
  * Shared by the synchronous path above and the scheduled job, so a queued run
  * and an immediate one produce byte-identical output for the same seed.
+ *
+ * Always JSON, and there is no choice about it: the stored string is what the
+ * preview table parses, what the script renderer drops into a template, and
+ * what the export endpoint re-serialises into CSV or SQL on demand. Storing
+ * either of those instead would be lossy about types and could not be read
+ * back into rows.
  */
 export function fillDataset(
     datasetId: string,
     config: SchemaConfig,
     fields: Field[],
     count: number,
-    format: ExportFormat,
 ): { ok: true; rowCount: number } | { ok: false; error: string } {
     setDatasetState(datasetId, 'running')
     try {
         const rows = generateRows({ ...config, fields, rowCount: count }, maxRows())
-        const file = serialize(rows, format, datasetName(config.name))
-        const attachmentId = writeDatasetAttachment(datasetId, file.fileName, file.contentType, file.body)
-        if (!attachmentId) {
-            setDatasetState(datasetId, 'failed', 'Could not write the rows as an attachment.')
-            return { ok: false, error: 'Could not write the rows as an attachment.' }
+        const rowsJson = toJson(rows)
+        if (rowsJson.length > DATASET_JSON_LIMIT) {
+            // Checked rather than attempted: the platform truncates a string
+            // past the column's length, and truncated JSON does not parse, so
+            // the dataset would read as complete and behave as corrupt.
+            const message =
+                `These rows are ${rowsJson.length} characters of JSON and the dataset column holds ` +
+                `${DATASET_JSON_LIMIT}. Generate fewer rows, or fewer columns, and run it again.`
+            setDatasetState(datasetId, 'failed', message)
+            return { ok: false, error: message }
+        }
+        if (!writeDatasetRows(datasetId, rowsJson)) {
+            setDatasetState(datasetId, 'failed', 'Could not write the rows to the dataset record.')
+            return { ok: false, error: 'Could not write the rows to the dataset record.' }
         }
         finishDataset(datasetId, rows.length, rowColumns(fields).length)
         return { ok: true, rowCount: rows.length }

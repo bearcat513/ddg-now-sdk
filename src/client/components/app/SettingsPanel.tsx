@@ -6,6 +6,7 @@ import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { TypeSelect } from "./TypeSelect";
 import { PREFERENCE_LIMITS, type Preferences } from "../../../server/lib/preferences";
+import type { ScriptTemplate } from "../../../server/lib/scriptTemplate";
 import { cn } from "../../lib/utils";
 
 /** Where a preference save has got to, for the header's quiet indicator. */
@@ -14,6 +15,8 @@ export type SaveState = "idle" | "saving" | "saved" | "failed";
 type Props = {
   preferences: Preferences;
   saveState: SaveState;
+  /** Every template this account can see, for the default-template picker. */
+  templates: ScriptTemplate[];
   /** Where the preferences live — the same label the sidebar shows for data. */
   storage: string;
   onChange: (patch: Partial<Preferences>) => void;
@@ -178,7 +181,16 @@ function ToggleSetting({
  * and has its own URL — the same treatment the editor gets, because it is the
  * same kind of place.
  */
-export function SettingsPanel({ preferences, saveState, storage, onChange, onReset, onClose, leading }: Props) {
+export function SettingsPanel({
+  preferences,
+  saveState,
+  templates,
+  storage,
+  onChange,
+  onReset,
+  onClose,
+  leading,
+}: Props) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex items-center gap-3 border-b bg-card/40 px-4 py-3">
@@ -317,6 +329,34 @@ export function SettingsPanel({ preferences, saveState, storage, onChange, onRes
                   <SelectItem value="csv">CSV</SelectItem>
                   <SelectItem value="json">JSON</SelectItem>
                   <SelectItem value="sql">SQL inserts</SelectItem>
+                </SelectContent>
+              </Select>
+            </Setting>
+
+            <Setting
+              label="Default script template"
+              hint={
+                templates.length
+                  ? "Preselected beside the preview. Any template can still be picked there."
+                  : "Nothing to pick yet — save a script template first."
+              }
+              htmlFor="pref-template"
+            >
+              <Select
+                value={preferences.defaultTemplateId || "none"}
+                onValueChange={id => onChange({ defaultTemplateId: id === "none" ? "" : id })}
+                disabled={!templates.length}
+              >
+                <SelectTrigger id="pref-template" className="h-8 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">First in the list</SelectItem>
+                  {templates.map(template => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Setting>

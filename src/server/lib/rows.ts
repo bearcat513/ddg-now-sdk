@@ -43,11 +43,11 @@ export function valueToText(value: unknown): string {
 /**
  * The inverse of `unflatten`: `{ address: { city } }` -> `"address.city"`.
  *
- * The Bun app never needed this — rows were stored flat in a JSON column and
- * only ever nested on the way out. Here the stored form is an attachment, so
- * reading a JSON dataset back and re-serialising it as CSV has to undo the
- * nesting the JSON export applied. Arrays stay whole: they are values, not
- * paths, and CSV encodes them as JSON in a single cell.
+ * The Bun app never needed this — rows were stored flat in its JSON column and
+ * only ever nested on the way out. Here the stored JSON is the nested form, so
+ * reading a dataset back and serialising it as CSV has to undo that nesting
+ * first. Arrays stay whole: they are values, not paths, and CSV encodes them
+ * as JSON in a single cell.
  */
 export function flatten(record: Record<string, unknown>, prefix = ""): Row {
   const out: Row = {};

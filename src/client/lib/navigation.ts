@@ -9,7 +9,7 @@
  *
  * `URLSearchParams`, no router library and no hash routing. The state is small
  * and flat: which configuration is open, which dataset the data pane is
- * showing, and which tab is in front.
+ * showing, which script template is being edited, and which tab is in front.
  *
  * The iframe check is the part that is easy to leave out and wrong to: a UI
  * Page opened from the navigator runs inside the Polaris frame, where
@@ -19,7 +19,7 @@
  */
 
 /** The editor's panes, in the order they are drawn — what the arrows walk. */
-export const TABS = ['import', 'schema'] as const
+export const TABS = ['import', 'schema', 'scripts'] as const
 
 export type Tab = (typeof TABS)[number]
 
@@ -40,6 +40,14 @@ export type WorkspaceState = {
     configId: string | null
     /** The dataset the data pane is showing, or null when it is empty. */
     datasetId: string | null
+    /**
+     * The script template open in the scripts pane, or null for an unsaved one.
+     *
+     * It rides beside the configuration rather than replacing it because the
+     * two are independent: a template is not a child of a schema, and someone
+     * who opens one has not closed the schema they were working on.
+     */
+    templateId: string | null
     tab: Tab
     view: View
 }
@@ -50,12 +58,16 @@ export function getStateFromUrl(): WorkspaceState {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
     const configId = params.get('config')
+    const templateId = params.get('template')
     return {
         configId,
         datasetId: params.get('dataset'),
+        templateId,
         // A saved schema opens on its fields; an empty editor opens on the
-        // paste box, because there is nothing else to look at yet.
-        tab: isTab(tab) ? tab : configId ? 'schema' : 'import',
+        // paste box, because there is nothing else to look at yet. A link that
+        // names a template is asking for the scripts pane whatever else it
+        // carries.
+        tab: isTab(tab) ? tab : templateId ? 'scripts' : configId ? 'schema' : 'import',
         // Anything but the one named view is the editor, so a mangled query
         // opens the app rather than an error.
         view: params.get('view') === 'settings' ? 'settings' : 'editor',
@@ -66,6 +78,7 @@ export function pathFor(state: WorkspaceState): string {
     const params = new URLSearchParams()
     if (state.configId) params.set('config', state.configId)
     if (state.datasetId) params.set('dataset', state.datasetId)
+    if (state.templateId) params.set('template', state.templateId)
     params.set('tab', state.tab)
     // Absent for the editor: the default view does not need to name itself, and
     // the links already in circulation stay the shape they were.
@@ -76,6 +89,10 @@ export function pathFor(state: WorkspaceState): string {
 /** The document title for a state, so titles are written in one place. */
 export function titleFor(state: WorkspaceState, configName?: string): string {
     if (state.view === 'settings') return 'Dummy Data Generator — Settings'
+    // The scripts pane is about the template rather than the schema behind it,
+    // so the label the caller passes is the template's name while it is in
+    // front — and an unsaved template does not have one yet.
+    if (state.tab === 'scripts' && !configName) return 'Dummy Data Generator — Scripts'
     if (configName) return `Dummy Data Generator — ${configName}`
     if (state.configId) return 'Dummy Data Generator — Configuration'
     return 'Dummy Data Generator'

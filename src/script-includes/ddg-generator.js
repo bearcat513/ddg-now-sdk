@@ -85,9 +85,12 @@ DdgGenerator.prototype = {
         return this._mod.preview(configId, rowCount, this._choiceCaller())
     },
 
-    /** Run a generation into the dataset store. */
-    generate: function (configId, rowCount, format) {
-        return this._mod.generate(configId, rowCount, format, this._choiceCaller())
+    /**
+     * Run a generation into the dataset store. Rows are stored as JSON on the
+     * dataset record; ask `/dataset/{id}/export?format=` for CSV or SQL.
+     */
+    generate: function (configId, rowCount) {
+        return this._mod.generate(configId, rowCount, this._choiceCaller())
     },
 
     /** Run a generation straight into a real table. */

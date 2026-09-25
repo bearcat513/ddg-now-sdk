@@ -148,7 +148,7 @@ test('an unseeded run does not repeat itself', () => {
 
 test('every field type produces a value without throwing', () => {
     // The real risk in a 1,500-line switch is a case that reaches a helper
-    // which no longer exists. This walks all ~195 of them.
+    // which no longer exists. This walks all ~215 of them.
     //
     // A few types are meaningless without an option and correctly refuse
     // without one — a calculated field with no formula is a user error, not a

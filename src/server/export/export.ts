@@ -5,9 +5,14 @@
  * The three serializers are the Bun app's, unchanged — they were already pure
  * functions over an array of rows. What did not come across is
  * `exportResponse()`, which built a `Response` with a `Content-Disposition`
- * header. There is no `Response` on the platform and nothing to download from:
- * rows land as a `GlideSysAttachment` on the dataset record, which is already
- * a file the platform will serve. See `writeDatasetAttachment` below.
+ * header; the export handler sets that header on the platform's own response.
+ *
+ * JSON is the *stored* form — `rows_json` on the dataset record holds exactly
+ * what `toJson` produced — and CSV and SQL are serialisations made on demand
+ * from it. That is why `toJson` is compact: the stored string has a column
+ * length to fit inside, and the `json_view` attribute formats it for reading
+ * on the form, so indenting it in storage would buy nothing and cost a third
+ * of the ceiling.
  */
 
 import { withoutGenerationStamp } from '../lib/datasetName.ts'
@@ -16,7 +21,7 @@ import { unflatten, type Row } from '../lib/rows.ts'
 export type ExportFormat = 'json' | 'csv' | 'sql'
 
 export function toJson(rows: Row[]): string {
-    return JSON.stringify(rows.map(unflatten), null, 2)
+    return JSON.stringify(rows.map(unflatten))
 }
 
 function csvCell(value: unknown): string {
@@ -89,21 +94,32 @@ export function toSql(rows: Row[], tableName: string): string {
 
 export type SerializedExport = { fileName: string; contentType: string; body: string }
 
+const CONTENT_TYPES: Record<ExportFormat, string> = {
+    json: 'application/json; charset=utf-8',
+    csv: 'text/csv; charset=utf-8',
+    sql: 'application/sql; charset=utf-8',
+}
+
+/**
+ * The file name and media type this export should be served as.
+ *
+ * Separate from `serialize` because a JSON export has no serialising left to
+ * do — the stored column *is* the body — but still needs the same name.
+ */
+export function exportFile(baseName: string, format: ExportFormat): { fileName: string; contentType: string } {
+    const safeName = baseName.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'dummy-data'
+    return { fileName: `${safeName}.${format}`, contentType: CONTENT_TYPES[format] }
+}
+
 /** The media type and file name the platform should serve this export as. */
 export function serialize(rows: Row[], format: ExportFormat, baseName: string): SerializedExport {
-    const safeName = baseName.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'dummy-data'
+    const file = exportFile(baseName, format)
 
-    if (format === 'csv') {
-        return { fileName: `${safeName}.csv`, contentType: 'text/csv; charset=utf-8', body: toCsv(rows) }
-    }
+    if (format === 'csv') return { ...file, body: toCsv(rows) }
     if (format === 'sql') {
         // The file keeps the run's timestamp; the table it seeds does not, or
         // every export of the same schema would land in a table of its own.
-        return {
-            fileName: `${safeName}.sql`,
-            contentType: 'application/sql; charset=utf-8',
-            body: toSql(rows, withoutGenerationStamp(baseName)),
-        }
+        return { ...file, body: toSql(rows, withoutGenerationStamp(baseName)) }
     }
-    return { fileName: `${safeName}.json`, contentType: 'application/json; charset=utf-8', body: toJson(rows) }
+    return { ...file, body: toJson(rows) }
 }

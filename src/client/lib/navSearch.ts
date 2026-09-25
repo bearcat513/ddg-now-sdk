@@ -1,15 +1,16 @@
 /**
  * The nav's global search: one box over everything the left-hand nav lists.
  *
- * Ported from the Bun app's `lib/navSearch.ts`, minus the lists that did not
- * come across — there are no notes and no script templates to search any more.
+ * Ported from the Bun app's `lib/navSearch.ts`, minus the one list that did not
+ * come across — there are no notes to search any more.
  *
  * Matching goes past the names deliberately. The thing someone remembers about
- * a schema is often not what it is called — it is the column they added, or
- * the ticket number they put in its metadata — so each record is searched
- * across the text it carries, and a hit that was not on the name says which
- * text it was, because a result whose title does not contain what you typed
- * otherwise looks like a bug in the search.
+ * a schema is often not what it is called — it is the column they added, the
+ * ticket number they put in its metadata, or the line of the script template
+ * they are looking for — so each record is searched across the text it
+ * carries, and a hit that was not on the name says which text it was, because
+ * a result whose title does not contain what you typed otherwise looks like a
+ * bug in the search.
  *
  * Plain case-insensitive substring matching, over lists that are tens of items
  * long, held entirely in memory. No index, no fuzzy distance, nothing to keep
@@ -23,6 +24,7 @@
  */
 
 import type { Dataset } from '../../server/lib/types'
+import type { ScriptTemplate } from '../../server/lib/scriptTemplate'
 import type { ConfigSummary } from './api'
 
 /** One surviving item, and why it survived when the reason is not its name. */
@@ -34,12 +36,25 @@ export type Match<T> = {
 
 export type NavResults = {
     configs: Match<ConfigSummary>[]
+    templates: Match<ScriptTemplate>[]
     datasets: Match<Dataset>[]
     /** Everything that matched, across every list. */
     total: number
 }
 
+/** Characters either side of a body hit, so the snippet has some context. */
+const SNIPPET_PAD = 24
+
 export const normalizeQuery = (query: string): string => query.trim().toLowerCase()
+
+/** The line a hit is on, trimmed to something that fits a nav row. */
+function snippet(body: string, needle: string): string {
+    const at = body.toLowerCase().indexOf(needle)
+    const from = Math.max(0, at - SNIPPET_PAD)
+    const to = Math.min(body.length, at + needle.length + SNIPPET_PAD)
+    const text = body.slice(from, to).replace(/\s+/g, ' ').trim()
+    return `${from > 0 ? '…' : ''}${text}${to < body.length ? '…' : ''}`
+}
 
 const has = (haystack: string | undefined, needle: string): boolean =>
     Boolean(haystack) && haystack!.toLowerCase().includes(needle)
@@ -62,6 +77,13 @@ function matchConfig(config: ConfigSummary, needle: string): Match<ConfigSummary
     return null
 }
 
+/** A template matches on its name, or anywhere in the script itself. */
+function matchTemplate(template: ScriptTemplate, needle: string): Match<ScriptTemplate> | null {
+    if (has(template.name, needle)) return { item: template }
+    if (has(template.body, needle)) return { item: template, hint: snippet(template.body, needle) }
+    return null
+}
+
 function matchDataset(dataset: Dataset, needle: string): Match<Dataset> | null {
     return has(dataset.name, needle) ? { item: dataset } : null
 }
@@ -71,14 +93,18 @@ function matchDataset(dataset: Dataset, needle: string): Match<Dataset> | null {
  * untouched, so the caller renders one code path whether or not it is
  * searching.
  */
-export function searchNav(query: string, lists: { configs: ConfigSummary[]; datasets: Dataset[] }): NavResults {
+export function searchNav(
+    query: string,
+    lists: { configs: ConfigSummary[]; templates: ScriptTemplate[]; datasets: Dataset[] },
+): NavResults {
     const needle = normalizeQuery(query)
 
     if (!needle) {
         return {
             configs: lists.configs.map((item) => ({ item })),
+            templates: lists.templates.map((item) => ({ item })),
             datasets: lists.datasets.map((item) => ({ item })),
-            total: lists.configs.length + lists.datasets.length,
+            total: lists.configs.length + lists.templates.length + lists.datasets.length,
         }
     }
 
@@ -93,7 +119,8 @@ export function searchNav(query: string, lists: { configs: ConfigSummary[]; data
         byNameFirst(items.map((item) => test(item, needle)).filter((match): match is Match<T> => match !== null))
 
     const configs = hit(lists.configs, matchConfig)
+    const templates = hit(lists.templates, matchTemplate)
     const datasets = hit(lists.datasets, matchDataset)
 
-    return { configs, datasets, total: configs.length + datasets.length }
+    return { configs, templates, datasets, total: configs.length + templates.length + datasets.length }
 }

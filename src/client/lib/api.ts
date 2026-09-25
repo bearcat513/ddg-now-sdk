@@ -15,13 +15,14 @@
  * ACLs decide instead. Either way the browser grants nothing: the server is
  * answering as whoever is asking.
  *
- * The routes that served auth, sessions, API keys, sharing, notes, script
- * templates and Telegram are gone because those features did not come across.
- * What is left is schemas, runs and rows.
+ * The routes that served auth, sessions, API keys, sharing, notes and Telegram
+ * are gone because those features did not come across. What is left is
+ * schemas, runs, rows, and the script templates rows are rendered into.
  */
 
 import type { Dataset, Field, SchemaConfig } from '../../server/lib/types'
 import type { Preferences } from '../../server/lib/preferences'
+import type { ScriptTemplate } from '../../server/lib/scriptTemplate'
 
 export const API_BASE = '/api/x_1040823_ddg_now/ddg'
 
@@ -109,7 +110,7 @@ const body = (value: unknown): RequestInit => ({ body: JSON.stringify(value) })
 /**
  * Text from an endpoint that serves a file rather than JSON.
  *
- * The export route streams an attachment, so it cannot go through `request` —
+ * The export route streams a file, so it cannot go through `request` —
  * but a failure from it still arrives as a JSON `{ error }`, which is why this
  * reads the body before deciding what happened rather than after.
  */
@@ -159,16 +160,14 @@ export type GenerateResult = {
 }
 
 /**
- * JSON is the stored form for anything this UI generates.
- *
- * It is the only format the rows can be read back out of — CSV and SQL are
- * lossy about types — and the export endpoint re-serialises JSON into either
- * of them on demand, so storing the richer form costs nothing and buys the
- * preview table.
+ * JSON is the stored form for every run, which is why the generate call below
+ * says nothing about format: the rows land as JSON on the dataset record and
+ * the export endpoint serialises CSV or SQL from them on demand.
  */
-export const STORED_FORMAT = 'json'
-
 export type ExportFormat = 'csv' | 'json' | 'sql'
+
+/** What a template save sends. The rest of a `ScriptTemplate` is the record's. */
+export type ScriptTemplatePayload = { name: string; body: string }
 
 /* ------------------------------- the client ------------------------------ */
 
@@ -237,7 +236,7 @@ export const api = {
     generate: (configId: string, rowCount?: number) =>
         request<GenerateResult>(`/config/${encodeURIComponent(configId)}/generate`, {
             method: 'POST',
-            ...body({ rowCount, format: STORED_FORMAT }),
+            ...body({ rowCount }),
         }),
 
     /** A run that writes into a real ServiceNow table instead of a dataset. */
@@ -286,6 +285,46 @@ export const api = {
     /** The same file as text, for the copy buttons. */
     exportText: (id: string, format: ExportFormat) =>
         fetchText(api.exportUrl(id, format), `The ${format.toUpperCase()} export`),
+
+    /* --------------------------- script templates ------------------------- */
+
+    /**
+     * Every template this account can see, bodies and all.
+     *
+     * Unlike `listConfigs`, which leaves the schema behind: a template *is*
+     * its body, the nav searches inside it, and opening one has to put it in
+     * the editor — so one call is the whole feature's data rather than a list
+     * followed by a fetch per template.
+     */
+    listTemplates: () => request<{ templates: ScriptTemplate[] }>('/template').then((result) => result.templates),
+
+    getTemplate: (id: string) => request<ScriptTemplate>(`/template/${encodeURIComponent(id)}`),
+
+    createTemplate: (template: ScriptTemplatePayload) =>
+        request<ScriptTemplate>('/template', { method: 'POST', ...body(template) }),
+
+    /** Name and body together: both of them are the record. */
+    updateTemplate: (id: string, template: ScriptTemplatePayload) =>
+        request<ScriptTemplate>(`/template/${encodeURIComponent(id)}`, { method: 'PUT', ...body(template) }),
+
+    deleteTemplate: (id: string) =>
+        request<{ ok: true }>(`/template/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    /* -------------------------- rendered scripts -------------------------- */
+
+    /**
+     * Where a dataset rendered into a template can be downloaded from.
+     *
+     * The template rides in the query string because the dataset is what the
+     * route is about: one run is dropped into several scripts without being
+     * generated again, which is what the picker beside the preview does.
+     */
+    scriptUrl: (datasetId: string, templateId: string) =>
+        `${API_BASE}/dataset/${encodeURIComponent(datasetId)}/script?template=${encodeURIComponent(templateId)}`,
+
+    /** The same script as text, for the copy button. */
+    scriptText: (datasetId: string, templateId: string) =>
+        fetchText(api.scriptUrl(datasetId, templateId), 'The rendered script'),
 
     /* ----------------------------- preferences ---------------------------- */
 

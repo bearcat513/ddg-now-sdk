@@ -73,6 +73,10 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '5f8979be58ff4ff6b054911e84fe7221'
                     }
+                    'ddg-api-create-template': {
+                        table: 'sys_ws_operation'
+                        id: '73cc6149b57e40bb8bde9d934c8deacd'
+                    }
                     'ddg-api-dataset': {
                         table: 'sys_ws_operation'
                         id: '7ebd273fba884016822464b728b158f9'
@@ -85,6 +89,14 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '7ae51e36fda741418a7c2d8304b4bbad'
                     }
+                    'ddg-api-dataset-script': {
+                        table: 'sys_ws_operation'
+                        id: 'a91945975485421dad7667f644db7cae'
+                    }
+                    'ddg-api-dataset-script-dataset-id': {
+                        table: 'sys_ws_query_parameter'
+                        id: '5a83d2b97f6e4f32aa3cf76b54df7eb8'
+                    }
                     'ddg-api-delete-config': {
                         table: 'sys_ws_operation'
                         id: 'deac769239d549c795e5ee40d23d0a26'
@@ -92,6 +104,10 @@ declare global {
                     'ddg-api-delete-dataset': {
                         table: 'sys_ws_operation'
                         id: 'fb95bf40817d4562925bc4d6a2d641a8'
+                    }
+                    'ddg-api-delete-template': {
+                        table: 'sys_ws_operation'
+                        id: '3d9aa1bccf8a4e0aa338ea5ca39a5c9e'
                     }
                     'ddg-api-export': {
                         table: 'sys_ws_operation'
@@ -117,6 +133,14 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '49f7590892df4830af539b647654a31f'
                     }
+                    'ddg-api-template': {
+                        table: 'sys_ws_operation'
+                        id: '13b3a285c0834a1186c3cda9c7fe2953'
+                    }
+                    'ddg-api-template-list': {
+                        table: 'sys_ws_operation'
+                        id: '61e5fe49dfe54ecb88fa5a1a947a5783'
+                    }
                     'ddg-api-update-config': {
                         table: 'sys_ws_operation'
                         id: '64bfb659885d412694eb1fb5e6de71db'
@@ -124,6 +148,10 @@ declare global {
                     'ddg-api-update-preferences': {
                         table: 'sys_ws_operation'
                         id: '28600d8419874784bff9d1c135498eb9'
+                    }
+                    'ddg-api-update-template': {
+                        table: 'sys_ws_operation'
+                        id: 'fcb6323fd4cb42c396542f3f56f084e0'
                     }
                     'ddg-drain-queue': {
                         table: 'sysauto_script'
@@ -317,6 +345,10 @@ declare global {
                         table: 'sys_module'
                         id: '7a296525f9d54eda8d4895c0e2151744'
                     }
+                    src_server_db_templates_ts: {
+                        table: 'sys_module'
+                        id: 'ad11542aed054ebc99398382902586c9'
+                    }
                     src_server_export_export_ts: {
                         table: 'sys_module'
                         id: '0235d3f030404e2f9535b254ec67a4d3'
@@ -369,6 +401,10 @@ declare global {
                         table: 'sys_module'
                         id: '946bf06a48cf4caf93d3c288e884c221'
                     }
+                    src_server_lib_scriptTemplate_ts: {
+                        table: 'sys_module'
+                        id: '8f2d319cc37e481b9658f47848399368'
+                    }
                     src_server_lib_types_ts: {
                         table: 'sys_module'
                         id: '7cff906f9d1940aaa6f0145470e3a282'
@@ -392,6 +428,22 @@ declare global {
                     'studio-page-execute': {
                         table: 'sys_security_acl'
                         id: 'ced860710b0046068daad1b22572928d'
+                    }
+                    'template-create': {
+                        table: 'sys_security_acl'
+                        id: 'a4d998900536407e8f9b771c69b2a86a'
+                    }
+                    'template-delete': {
+                        table: 'sys_security_acl'
+                        id: 'd7de0f87d7254ce3bebb79043a2a4fbc'
+                    }
+                    'template-read': {
+                        table: 'sys_security_acl'
+                        id: '245f44fc303a44ea9e584fae5fe32a0a'
+                    }
+                    'template-write': {
+                        table: 'sys_security_acl'
+                        id: '2e8526cae15e4ce4b62679fe062300c7'
                     }
                 }
                 composite: [
@@ -449,6 +501,22 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '091db77582df482d8d135710c5d3f2f4'
+                        key: {
+                            application_file: '2e58de66e3984785b75ccb5df457396f'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '0acbd8e2c1f3479c830bc9bdf077c036'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
+                            element: 'name'
+                        }
+                    },
+                    {
                         table: 'sys_security_acl_role'
                         id: '0b77cad1752b4293a4115b48de539097'
                         key: {
@@ -492,6 +560,19 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_security_acl_role'
+                        id: '148f9e254b7c40e8a1fdff0879517918'
+                        key: {
+                            sys_security_acl: '245f44fc303a44ea9e584fae5fe32a0a'
+                            sys_user_role: {
+                                id: '55dbf8e21b344897ba7d6c4ae551342e'
+                                key: {
+                                    name: 'x_1040823_ddg_now.user'
+                                }
+                            }
+                        }
+                    },
+                    {
                         table: 'sys_dictionary'
                         id: '171eb44e450541e08502acea99f88172'
                         key: {
@@ -508,11 +589,39 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_security_acl_role'
+                        id: '1a7fa3ef172e4a899eeddc2d3f3e10c1'
+                        key: {
+                            sys_security_acl: 'd7de0f87d7254ce3bebb79043a2a4fbc'
+                            sys_user_role: {
+                                id: '55dbf8e21b344897ba7d6c4ae551342e'
+                                key: {
+                                    name: 'x_1040823_ddg_now.user'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: '1aa510d9c1b8412f99fb9ea0f49c128a'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--df8484ac'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '1b045f6306f044a89a7bba7c751a6d6c'
                         deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/DatasetDetail.js.map'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '1c5e71ce3d034130a982975834686bf7'
+                        key: {
+                            name: 'x_1040823_ddg_now_dataset'
+                            element: 'rows_json'
                         }
                     },
                     {
@@ -542,6 +651,13 @@ declare global {
                         key: {
                             name: 'x_1040823_ddg_now_mapping'
                             element: 'config'
+                        }
+                    },
+                    {
+                        table: 'sys_db_object'
+                        id: '1f453005a3f64a8a884c841734c6f0b8'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
                         }
                     },
                     {
@@ -594,6 +710,13 @@ declare global {
                     },
                     {
                         table: 'sys_ux_lib_asset'
+                        id: '2e58de66e3984785b75ccb5df457396f'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--df8484ac.js.map'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
                         id: '31390b97778e4ce3808e0fa06d8cdbff'
                         deleted: true
                         key: {
@@ -627,6 +750,15 @@ declare global {
                         key: {
                             name: 'x_1040823_ddg_now_mapping'
                             element: 'mode'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '3763664b0f2942f188dee2497aabd2d9'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
+                            element: 'name'
+                            language: 'en'
                         }
                     },
                     {
@@ -716,6 +848,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: '44fe44e08427419d9303b34ea5205f91'
+                        key: {
+                            name: 'x_1040823_ddg_now_dataset'
+                            element: 'rows_json'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_security_acl_role'
                         id: '45a5b3cd03bc4924aa44ff1f7f0d30f0'
                         key: {
@@ -742,6 +883,15 @@ declare global {
                         key: {
                             name: 'x_1040823_ddg_now_mapping'
                             element: 'field_name'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '4a9816ddb4b9441e87084b7626a7a260'
+                        key: {
+                            name: 'x_1040823_ddg_now_user_pref'
+                            element: 'default_template'
+                            language: 'en'
                         }
                     },
                     {
@@ -868,6 +1018,19 @@ declare global {
                             value: 'running'
                             language: 'en'
                             dependent_value: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sys_security_acl_role'
+                        id: '5c184667e7f3467f94e17e637420ece0'
+                        key: {
+                            sys_security_acl: 'a4d998900536407e8f9b771c69b2a86a'
+                            sys_user_role: {
+                                id: '55dbf8e21b344897ba7d6c4ae551342e'
+                                key: {
+                                    name: 'x_1040823_ddg_now.user'
+                                }
+                            }
                         }
                     },
                     {
@@ -1255,6 +1418,22 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_index'
+                        id: 'a4305cf60a0f45069012150e774f1dcb'
+                        key: {
+                            logical_table_name: 'x_1040823_ddg_now_template'
+                            col_name_string: 'name'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'a60987c935a04e8a86bf49bd47c4f682'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
+                            element: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_dictionary'
                         id: 'a6953c38ff0c426080f4253c366e3cd6'
                         key: {
@@ -1298,6 +1477,7 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: 'ab119d2f3fe54a98a7f7fb7972fec8c0'
+                        deleted: true
                         key: {
                             application_file: 'b723e24e20e745659ec735e4ddfc80c5'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
@@ -1363,8 +1543,16 @@ declare global {
                         }
                     },
                     {
+                        table: 'ua_table_licensing_config'
+                        id: 'b66e5abc8d7543da84cb8ad6cf4e115f'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: 'b723e24e20e745659ec735e4ddfc80c5'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--4a265a91'
                         }
@@ -1384,6 +1572,14 @@ declare global {
                             name: 'x_1040823_ddg_now_user_pref'
                             element: 'editor_split_percent'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'b7ccbbaa236f411090de4d3022ad3444'
+                        key: {
+                            name: 'x_1040823_ddg_now_user_pref'
+                            element: 'default_template'
                         }
                     },
                     {
@@ -1498,6 +1694,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'cbdb77d1141f4c06b6b24f96f7d444df'
+                        key: {
+                            application_file: '1aa510d9c1b8412f99fb9ea0f49c128a'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
+                        }
+                    },
+                    {
                         table: 'sys_security_acl_role'
                         id: 'ce4cdf9b42a34edab205b19c3d5aa1ca'
                         key: {
@@ -1569,9 +1773,18 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: 'd9487a872bd748358cac072f70d87440'
+                        deleted: true
                         key: {
                             application_file: 'eba82aab22214b088d2075ddd36403b4'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'db2f02c11b9f45818c4bb55faa58266f'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
+                            element: 'script'
                         }
                     },
                     {
@@ -1616,6 +1829,36 @@ declare global {
                     },
                     {
                         table: 'sys_security_acl_role'
+                        id: 'e6668edb239547249af8e06e413117db'
+                        key: {
+                            sys_security_acl: '2e8526cae15e4ce4b62679fe062300c7'
+                            sys_user_role: {
+                                id: '55dbf8e21b344897ba7d6c4ae551342e'
+                                key: {
+                                    name: 'x_1040823_ddg_now.user'
+                                }
+                            }
+                        }
+                    },
+                    {
+                        table: 'sys_ws_query_parameter_map'
+                        id: 'e73d6d33a39e46d680f10bbecfa81194'
+                        key: {
+                            web_service_operation: 'a91945975485421dad7667f644db7cae'
+                            web_service_query_parameter: '5a83d2b97f6e4f32aa3cf76b54df7eb8'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: 'e84bbc2fd8c34613bc21c96442853a01'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
+                            element: 'script'
+                            language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_security_acl_role'
                         id: 'ea539f2c38df44319eb0c793adadd84b'
                         key: {
                             sys_security_acl: 'fd905064ec2b40bd970e89b7dfadf60e'
@@ -1637,6 +1880,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'eb2acd93f21d47f3994d09757b100053'
+                        key: {
+                            name: 'x_1040823_ddg_now_template'
+                            element: 'NULL'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_security_acl_role'
                         id: 'eb77fc69d135468dbbfa724a6a6eecf8'
                         key: {
@@ -1652,6 +1904,7 @@ declare global {
                     {
                         table: 'sys_ux_lib_asset'
                         id: 'eba82aab22214b088d2075ddd36403b4'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--4a265a91.js.map'
                         }

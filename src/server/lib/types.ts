@@ -432,7 +432,27 @@ export type FieldType =
   | "sysId"
   | "sysClassName"
   | "nowRecordNumber"
-  | "journalEntry";
+  | "journalEntry"
+  | "glideDateTime"
+  | "glideDuration"
+  | "encodedQuery"
+  | "cmdbClass"
+  | "ciName"
+  | "nowUserId"
+  | "nowRole"
+  | "appScope"
+  | "incidentState"
+  | "taskPriority"
+  | "taskImpact"
+  | "taskUrgency"
+  | "taskCategory"
+  | "contactType"
+  | "closeCode"
+  | "assignmentGroup"
+  | "shortDescription"
+  | "changeType"
+  | "changeRisk"
+  | "approvalState";
 
 export type FieldTypeMeta = {
   type: FieldType;
@@ -673,7 +693,48 @@ export const FIELD_TYPES: FieldTypeMeta[] = [
   { type: "sysClassName", label: "sys_class_name", group: "ServiceNow", opts: [] },
   { type: "nowRecordNumber", label: "Record number", group: "ServiceNow", opts: ["variant", "min"] },
   { type: "journalEntry", label: "Journal entry", group: "ServiceNow", opts: [] },
+  { type: "glideDateTime", label: "GlideDateTime", group: "ServiceNow", opts: ["from", "to"] },
+  { type: "glideDuration", label: "Duration", group: "ServiceNow", opts: ["min", "max", "variant"] },
+  { type: "encodedQuery", label: "Encoded query", group: "ServiceNow", opts: [] },
+  { type: "cmdbClass", label: "CMDB class", group: "ServiceNow", opts: [] },
+  { type: "ciName", label: "Configuration item", group: "ServiceNow", opts: [] },
+  { type: "nowUserId", label: "User ID (user_name)", group: "ServiceNow", opts: ["derivesFrom"] },
+  { type: "nowRole", label: "Role", group: "ServiceNow", opts: [] },
+  { type: "appScope", label: "Application scope", group: "ServiceNow", opts: [] },
+  { type: "incidentState", label: "Incident state", group: "ServiceNow", opts: ["variant"] },
+  { type: "taskPriority", label: "Priority", group: "ServiceNow", opts: ["variant"] },
+  { type: "taskImpact", label: "Impact", group: "ServiceNow", opts: ["variant"] },
+  { type: "taskUrgency", label: "Urgency", group: "ServiceNow", opts: ["variant"] },
+  { type: "taskCategory", label: "Category", group: "ServiceNow", opts: ["variant"] },
+  { type: "contactType", label: "Contact type", group: "ServiceNow", opts: ["variant"] },
+  { type: "closeCode", label: "Close code", group: "ServiceNow", opts: [] },
+  { type: "assignmentGroup", label: "Assignment group", group: "ServiceNow", opts: [] },
+  { type: "shortDescription", label: "Short description", group: "ServiceNow", opts: [] },
+  { type: "changeType", label: "Change type", group: "ServiceNow", opts: ["variant"] },
+  { type: "changeRisk", label: "Change risk", group: "ServiceNow", opts: ["variant"] },
+  { type: "approvalState", label: "Approval state", group: "ServiceNow", opts: ["variant"] },
 ];
+
+/**
+ * The ServiceNow choice fields, whose `variant` says which half of the pair a
+ * row carries: the stored value, as the REST API and an insert see it, or the
+ * label a list shows. Value is the default — a generated row is usually on its
+ * way into a table.
+ */
+export const NOW_CHOICE_FIELD_TYPES = new Set<FieldType>([
+  "incidentState",
+  "taskPriority",
+  "taskImpact",
+  "taskUrgency",
+  "taskCategory",
+  "contactType",
+  "changeType",
+  "changeRisk",
+  "approvalState",
+]);
+
+/** What a ServiceNow choice field's `variant` may say. */
+export const NOW_CHOICE_VARIANTS = ["value", "label"] as const;
 
 /** Rows a `nowQuery` field draws from when no limit is set. */
 export const NOW_QUERY_DEFAULT_LIMIT = 10;
@@ -804,6 +865,9 @@ export function defaultFieldOptions(type: FieldType): FieldOptions {
       return { min: 6 };
     case "nowRecordNumber":
       return { variant: "INC", min: 1_000_001 };
+    case "glideDuration":
+      // A minute to two days: the span an ITSM duration column actually holds.
+      return { min: 60, max: 172_800, variant: "glide" };
     default:
       return {};
   }

@@ -51,7 +51,7 @@ export function drainQueue(): void {
         // run sees what the source holds when it runs. That is the whole point
         // of a dynamic source; caching it at enqueue would defeat it.
         const fields = resolveChoiceScripts(config.fields)
-        fillDataset(datasetId, config, fields, count, 'csv')
+        fillDataset(datasetId, config, fields, count)
     } catch (error) {
         setDatasetState(datasetId, 'failed', (error as Error).message)
     }

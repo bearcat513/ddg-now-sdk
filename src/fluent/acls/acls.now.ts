@@ -164,7 +164,8 @@ Acl({
  * A configuration describes shapes and is worth sharing; a dataset is actual
  * rows, and in the Bun app it was never shared with anyone — "generated data
  * is never shared, so this is always the caller". Read is kept to the creator
- * to preserve that, and the attachment holding the rows inherits it.
+ * to preserve that, and the rows are a column on the record, so they are
+ * covered by the same decision rather than by a second one.
  */
 Acl({
     $id: Now.ID['dataset-read'],
@@ -197,6 +198,53 @@ Acl({
     type: 'record',
     operation: 'delete',
     table: 'x_1040823_ddg_now_dataset',
+    roles: [ddgUser],
+    condition: OWN_RECORD,
+})
+
+/* ---------------------------- script templates --------------------------- */
+
+/**
+ * A template is read like a configuration and written like one.
+ *
+ * Both are descriptions rather than data — a schema describes shapes, a
+ * template describes what to do with rows — and both are worth a team sharing.
+ * So read is app-wide for anyone with the role and editing stays the
+ * creator's, which is also what the Bun app's sharing model amounted to once
+ * `sharedWith` was read-only. Someone who wants to change a colleague's
+ * template saves their own copy, exactly as they would with a schema.
+ */
+Acl({
+    $id: Now.ID['template-read'],
+    type: 'record',
+    operation: 'read',
+    table: 'x_1040823_ddg_now_template',
+    roles: [ddgUser],
+    description: 'Anyone with the DDG role can read any script template.',
+})
+
+Acl({
+    $id: Now.ID['template-create'],
+    type: 'record',
+    operation: 'create',
+    table: 'x_1040823_ddg_now_template',
+    roles: [ddgUser],
+})
+
+Acl({
+    $id: Now.ID['template-write'],
+    type: 'record',
+    operation: 'write',
+    table: 'x_1040823_ddg_now_template',
+    roles: [ddgUser],
+    condition: OWN_RECORD,
+})
+
+Acl({
+    $id: Now.ID['template-delete'],
+    type: 'record',
+    operation: 'delete',
+    table: 'x_1040823_ddg_now_template',
     roles: [ddgUser],
     condition: OWN_RECORD,
 })

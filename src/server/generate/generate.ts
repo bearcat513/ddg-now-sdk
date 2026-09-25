@@ -53,6 +53,11 @@ function formatDate(date: Date, format: FieldOptions["format"]): string | number
   }
 }
 
+/** The platform's storage format for a glide_date_time: UTC, space separated. */
+function glideDateTime(date: Date): string {
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
 /** Reads a generated value back as a Date, whatever format it was written in. */
 function toDate(value: unknown): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -226,6 +231,156 @@ const SYS_CLASS_NAMES = [
   "cmdb_ci_server", "cmdb_ci_appl", "sys_user", "sys_user_group", "kb_knowledge",
 ];
 
+/**
+ * The ServiceNow choice pools.
+ *
+ * Each entry carries both halves of a choice: the value a record actually
+ * stores — which is what an insert and the Table API see — and the label a
+ * list shows. `variant: "label"` picks the second; anything else takes the
+ * first. Values stay strings because that is how the platform returns every
+ * field, numeric choice or not.
+ *
+ * Weights are there so a thousand generated incidents look like a queue rather
+ * than a uniform draw: mostly moderate priority, mostly closed.
+ */
+type NowChoice = { value: string; label: string; weight?: number };
+
+const INCIDENT_STATES: NowChoice[] = [
+  { value: "1", label: "New", weight: 4 },
+  { value: "2", label: "In Progress", weight: 5 },
+  { value: "3", label: "On Hold", weight: 2 },
+  { value: "6", label: "Resolved", weight: 4 },
+  { value: "7", label: "Closed", weight: 6 },
+  { value: "8", label: "Canceled", weight: 1 },
+];
+
+const TASK_PRIORITIES: NowChoice[] = [
+  { value: "1", label: "1 - Critical", weight: 1 },
+  { value: "2", label: "2 - High", weight: 3 },
+  { value: "3", label: "3 - Moderate", weight: 8 },
+  { value: "4", label: "4 - Low", weight: 6 },
+  { value: "5", label: "5 - Planning", weight: 2 },
+];
+
+const TASK_IMPACTS: NowChoice[] = [
+  { value: "1", label: "1 - High", weight: 2 },
+  { value: "2", label: "2 - Medium", weight: 5 },
+  { value: "3", label: "3 - Low", weight: 4 },
+];
+
+const TASK_URGENCIES: NowChoice[] = [
+  { value: "1", label: "1 - High", weight: 2 },
+  { value: "2", label: "2 - Medium", weight: 5 },
+  { value: "3", label: "3 - Low", weight: 4 },
+];
+
+const TASK_CATEGORIES: NowChoice[] = [
+  { value: "inquiry", label: "Inquiry / Help", weight: 4 },
+  { value: "software", label: "Software", weight: 5 },
+  { value: "hardware", label: "Hardware", weight: 4 },
+  { value: "network", label: "Network", weight: 3 },
+  { value: "database", label: "Database", weight: 2 },
+];
+
+const CONTACT_TYPES: NowChoice[] = [
+  { value: "self-service", label: "Self-service", weight: 5 },
+  { value: "email", label: "Email", weight: 4 },
+  { value: "phone", label: "Phone", weight: 4 },
+  { value: "chat", label: "Chat", weight: 2 },
+  { value: "walk-in", label: "Walk-in", weight: 1 },
+  { value: "virtual_agent", label: "Virtual Agent", weight: 2 },
+];
+
+const CHANGE_TYPES: NowChoice[] = [
+  { value: "normal", label: "Normal", weight: 5 },
+  { value: "standard", label: "Standard", weight: 4 },
+  { value: "emergency", label: "Emergency", weight: 1 },
+];
+
+const CHANGE_RISKS: NowChoice[] = [
+  { value: "2", label: "Very High", weight: 1 },
+  { value: "3", label: "High", weight: 2 },
+  { value: "4", label: "Moderate", weight: 5 },
+  { value: "5", label: "Low", weight: 6 },
+];
+
+const APPROVAL_STATES: NowChoice[] = [
+  { value: "not requested", label: "Not Yet Requested", weight: 3 },
+  { value: "requested", label: "Requested", weight: 4 },
+  { value: "approved", label: "Approved", weight: 6 },
+  { value: "rejected", label: "Rejected", weight: 1 },
+  { value: "cancelled", label: "Cancelled", weight: 1 },
+];
+
+/** Close codes are stored as their own label, so there is no pair to pick. */
+const CLOSE_CODES = [
+  "Solved (Work Around)",
+  "Solved (Permanently)",
+  "Solved Remotely (Work Around)",
+  "Solved Remotely (Permanently)",
+  "Not Solved (Not Reproducible)",
+  "Not Solved (Too Costly)",
+  "Closed/Resolved by Caller",
+];
+
+const ASSIGNMENT_GROUPS = [
+  "Service Desk", "Network", "Hardware", "Software", "Database", "Application Development",
+  "Change Management", "Problem Management", "Field Services", "Security Operations",
+  "Incident Management", "Openspace", "CAB Approval",
+];
+
+const SHORT_DESCRIPTIONS = [
+  "Unable to connect to VPN from home",
+  "Email not syncing on mobile device",
+  "Laptop will not boot after update",
+  "Printer on the 3rd floor is offline",
+  "Password reset required",
+  "SAP login fails with an authentication error",
+  "Slow performance on the shared drive",
+  "Request for a second monitor",
+  "Cannot access the SharePoint site",
+  "Wi-Fi drops repeatedly in Building C",
+  "Nightly database backup job failed",
+  "Salesforce integration returning 401",
+  "Disk space low on the production app server",
+  "Outlook crashes on startup",
+  "Need access to the finance reporting dashboard",
+  "Phone system outage in the call centre",
+  "Multi-factor authentication code not received",
+  "Conference room PC has no audio",
+  "Server room temperature alert",
+  "New hire onboarding - equipment setup",
+];
+
+const CMDB_CLASSES = [
+  "cmdb_ci_linux_server", "cmdb_ci_win_server", "cmdb_ci_esx_server", "cmdb_ci_vm_instance",
+  "cmdb_ci_db_mysql_instance", "cmdb_ci_db_ora_instance", "cmdb_ci_app_server_tomcat",
+  "cmdb_ci_web_server", "cmdb_ci_router", "cmdb_ci_switch", "cmdb_ci_firewall_network",
+  "cmdb_ci_computer", "cmdb_ci_printer", "cmdb_ci_storage_device", "cmdb_ci_service", "cmdb_ci_appl",
+];
+
+const CI_ROLES = ["web", "app", "db", "mail", "dns", "lb", "esx", "san", "vpn", "auth", "batch", "cache"];
+
+const CI_ENVIRONMENTS = ["prd", "stg", "dev", "qa", "uat"];
+
+const NOW_ROLES = [
+  "admin", "itil", "itil_admin", "approver_user", "catalog_admin", "knowledge_admin",
+  "asset", "report_admin", "user_admin", "security_admin", "sn_incident_write",
+  "sn_change_write", "sn_request_read", "snc_internal",
+];
+
+/** Clause fragments an `encodedQuery` is assembled from, by column. */
+const QUERY_CLAUSES = [
+  "active=true", "active=false", "state=1", "state=2", "state!=7", "priority=1", "priority<=2",
+  "urgency=1", "category=network", "assigned_toISEMPTY", "assignment_group.name=Service Desk",
+  "sys_created_onONLast 30 days@javascript:gs.beginningOfLast30Days()@javascript:gs.endOfLast30Days()",
+  "short_descriptionLIKEvpn", "caller_id.email!=", "opened_at>javascript:gs.beginningOfThisMonth()",
+];
+
+const QUERY_ORDERS = ["ORDERBYnumber", "ORDERBYDESCsys_created_on", "ORDERBYpriority", "ORDERBYDESCopened_at"];
+
+const SCOPE_VENDORS = ["snc", "sn", "acme", "glb", "nvda", "hrx", "fin", "ops"];
+
 const ICD10_PREFIXES = ["A", "B", "C", "D", "E", "F", "G", "I", "J", "K", "L", "M", "N", "R", "S", "T", "Z"];
 
 /**
@@ -397,6 +552,16 @@ function derivedSource(opts: FieldOptions, ctx: GenContext): { firstName?: strin
   const parts = nameParts(named);
   if (parts.firstName) return parts;
   return {};
+}
+
+/**
+ * One draw from a ServiceNow choice pool. Always one draw from the seeded
+ * stream whichever half is asked for, so switching `variant` between value and
+ * label re-labels the same rows rather than generating different ones.
+ */
+function nowChoice(f: Random, pool: NowChoice[], variant: string | undefined): string {
+  const picked = f.helpers.weightedArrayElement(pool.map(choice => ({ value: choice, weight: choice.weight ?? 1 })));
+  return variant === "label" ? picked.label : picked.value;
 }
 
 function bundleValue(kind: BundleKind, ctx: GenContext): Record<string, unknown> {
@@ -1130,6 +1295,77 @@ function generateValue(type: FieldType, opts: FieldOptions, ctx: GenContext): un
     }
     case "journalEntry":
       return `${f.date.recent({ days: 30 }).toISOString().slice(0, 16).replace("T", " ")} - ${f.person.fullName()} (Work notes)\n${f.lorem.sentence()}`;
+    case "glideDateTime": {
+      // Same bounds handling as `date`, but never any other output shape: a
+      // glide_date_time column only ever accepts this one format.
+      const from = opts.from ? new Date(opts.from) : new Date(Date.now() - 90 * 24 * 3600 * 1000);
+      const to = opts.to ? new Date(opts.to) : new Date();
+      const safeFrom = Number.isNaN(from.getTime()) ? new Date(2020, 0, 1) : from;
+      const safeTo = Number.isNaN(to.getTime()) || to <= safeFrom ? new Date(safeFrom.getTime() + 86400000) : to;
+      return glideDateTime(f.date.between({ from: safeFrom, to: safeTo }));
+    }
+    case "glideDuration": {
+      const seconds = Math.max(0, Math.floor(drawNumber(f, opts, { min: 60, max: 172_800, decimals: 0 })));
+      if (opts.variant === "human") {
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const parts: string[] = [];
+        if (days) parts.push(`${days} Day${days === 1 ? "" : "s"}`);
+        if (hours) parts.push(`${hours} Hour${hours === 1 ? "" : "s"}`);
+        if (minutes || !parts.length) parts.push(`${minutes} Minute${minutes === 1 ? "" : "s"}`);
+        return parts.join(" ");
+      }
+      // A duration is stored as an offset from the epoch, so the date part
+      // carries the days: 2 days 3 hours is "1970-01-03 03:00:00".
+      return glideDateTime(new Date(seconds * 1000));
+    }
+    case "encodedQuery": {
+      const clauses = f.helpers.arrayElements(QUERY_CLAUSES, f.number.int({ min: 1, max: 3 }));
+      const order = f.datatype.boolean({ probability: 0.4 }) ? [f.helpers.arrayElement(QUERY_ORDERS)] : [];
+      return [...clauses, ...order].join("^");
+    }
+    case "cmdbClass":
+      return f.helpers.arrayElement(CMDB_CLASSES);
+    case "ciName":
+      return `${f.helpers.arrayElement(CI_ROLES)}-${f.helpers.arrayElement(CI_ENVIRONMENTS)}-${String(f.number.int({ min: 1, max: 99 })).padStart(3, "0")}`;
+    case "nowUserId": {
+      // `user_name` is first.last on a stock instance, and the demo data is
+      // exactly that shape, so this is the form a lookup will match.
+      const parts = derivedSource(opts, ctx);
+      const first = parts.firstName ?? f.person.firstName();
+      const last = parts.lastName ?? f.person.lastName();
+      return `${f.helpers.slugify(first)}.${f.helpers.slugify(last)}`.toLowerCase();
+    }
+    case "nowRole":
+      return f.helpers.arrayElement(NOW_ROLES);
+    case "appScope":
+      // x_<vendor prefix>_<app>, the shape the platform assigns a scoped app.
+      return `x_${f.helpers.arrayElement(SCOPE_VENDORS)}_${f.internet.domainWord().replace(/-/g, "_")}`;
+    case "incidentState":
+      return nowChoice(f, INCIDENT_STATES, opts.variant);
+    case "taskPriority":
+      return nowChoice(f, TASK_PRIORITIES, opts.variant);
+    case "taskImpact":
+      return nowChoice(f, TASK_IMPACTS, opts.variant);
+    case "taskUrgency":
+      return nowChoice(f, TASK_URGENCIES, opts.variant);
+    case "taskCategory":
+      return nowChoice(f, TASK_CATEGORIES, opts.variant);
+    case "contactType":
+      return nowChoice(f, CONTACT_TYPES, opts.variant);
+    case "closeCode":
+      return f.helpers.arrayElement(CLOSE_CODES);
+    case "assignmentGroup":
+      return f.helpers.arrayElement(ASSIGNMENT_GROUPS);
+    case "shortDescription":
+      return f.helpers.arrayElement(SHORT_DESCRIPTIONS);
+    case "changeType":
+      return nowChoice(f, CHANGE_TYPES, opts.variant);
+    case "changeRisk":
+      return nowChoice(f, CHANGE_RISKS, opts.variant);
+    case "approvalState":
+      return nowChoice(f, APPROVAL_STATES, opts.variant);
 
     default:
       return f.lorem.word();

@@ -53,6 +53,7 @@ function readRow(gr: GlideRecordSecure<typeof PREF_TABLE>): Preferences {
         defaultRowCount: gr.getValue('default_row_count'),
         defaultFieldType: gr.getValue('default_field_type'),
         defaultExportFormat: gr.getValue('default_export_format'),
+        defaultTemplateId: gr.getValue('default_template'),
         previewRowLimit: gr.getValue('preview_row_limit'),
     })
 }
@@ -65,6 +66,7 @@ function writeRow(gr: GlideRecordSecure<typeof PREF_TABLE>, preferences: Prefere
     gr.setValue('default_row_count', String(preferences.defaultRowCount))
     gr.setValue('default_field_type', preferences.defaultFieldType)
     gr.setValue('default_export_format', preferences.defaultExportFormat)
+    gr.setValue('default_template', preferences.defaultTemplateId)
     gr.setValue('preview_row_limit', String(preferences.previewRowLimit))
 }
 

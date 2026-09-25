@@ -18,6 +18,8 @@ import {
   FIELD_TYPES,
   isNumericField,
   MAX_FIELD_DEPTH,
+  NOW_CHOICE_FIELD_TYPES,
+  NOW_CHOICE_VARIANTS,
   NOW_QUERY_DEFAULT_LIMIT,
   SPREADING_FIELD_TYPES,
   type BundleKind,
@@ -813,11 +815,26 @@ export function FieldRow({
                     ))}
                   </SelectContent>
                 </Select>
+              ) : NOW_CHOICE_FIELD_TYPES.has(field.type) ? (
+                <Select value={opts.variant ?? "value"} onValueChange={value => setOption("variant", value)}>
+                  <SelectTrigger className="w-full" size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NOW_CHOICE_VARIANTS.map(variant => (
+                      <SelectItem key={variant} value={variant}>
+                        {variant === "value" ? "Stored value" : "Display label"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
                 <Input
                   className="h-8 font-mono text-xs"
                   placeholder={
-                    field.type === "apiKey"
+                    field.type === "glideDuration"
+                      ? "glide | human"
+                      : field.type === "apiKey"
                       ? "sk_live"
                       : field.type === "nowRecordNumber"
                         ? "INC"

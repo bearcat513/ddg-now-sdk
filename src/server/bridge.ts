@@ -61,12 +61,8 @@ export function preview(configId: string, rowCount: number, callScriptInclude?: 
  * resolve a Script Include by name — see the note at the top of
  * `generate/choices.ts`. Every other choice source works without it.
  */
-export function generate(configId: string, rowCount?: number, format?: string, callScriptInclude?: ScriptIncludeCaller) {
-    return runToDataset(configId, {
-        rowCount,
-        format: (format as 'json' | 'csv' | 'sql') ?? 'csv',
-        callScriptInclude,
-    })
+export function generate(configId: string, rowCount?: number, callScriptInclude?: ScriptIncludeCaller) {
+    return runToDataset(configId, { rowCount, callScriptInclude })
 }
 
 /** Runs a generation straight into a real table. Role-gated by its caller. */

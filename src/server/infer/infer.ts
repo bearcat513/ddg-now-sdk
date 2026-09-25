@@ -138,6 +138,28 @@ const NAME_RULES: [RegExp, FieldType][] = [
   // servicenow
   [/^sys ?id$/, "sysId"],
   [/^sys ?class ?name$/, "sysClassName"],
+  [/^number$/, "nowRecordNumber"],
+  [/^(short ?description)$/, "shortDescription"],
+  [/^(assignment ?group)$/, "assignmentGroup"],
+  [/^(incident ?state)$/, "incidentState"],
+  [/^priority$/, "taskPriority"],
+  [/^impact$/, "taskImpact"],
+  [/^urgency$/, "taskUrgency"],
+  [/^category$/, "taskCategory"],
+  [/^(contact ?type)$/, "contactType"],
+  [/^(close ?code|resolution ?code)$/, "closeCode"],
+  [/^(change ?type)$/, "changeType"],
+  [/^risk$/, "changeRisk"],
+  [/^(approval|approval ?state)$/, "approvalState"],
+  [/^(sys ?(created|updated) ?on|opened ?at|closed ?at|resolved ?at|due ?date)$/, "glideDateTime"],
+  [/(duration|business ?duration|calendar ?duration)/, "glideDuration"],
+  [/^(cmdb ?class|ci ?class)$/, "cmdbClass"],
+  [/^(ci|cmdb ?ci|configuration ?item)$/, "ciName"],
+  // "user_name" normalizes to "user name"; plain "username" stays the
+  // generic internet handle.
+  [/^(user ?id|user name)$/, "nowUserId"],
+  [/^(encoded ?query|sysparm ?query)$/, "encodedQuery"],
+  [/^(scope|application ?scope)$/, "appScope"],
 
   [/^(first ?name|given ?name|fname)$/, "firstName"],
   [/^(last ?name|surname|family ?name|lname)$/, "lastName"],

@@ -3,6 +3,7 @@ import {
   ChevronRight,
   Database,
   Download,
+  FileCode2,
   FileStack,
   ListTree,
   PanelLeftClose,
@@ -15,10 +16,12 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { searchNav, type Match } from "../../lib/navSearch";
+import { countPlaceholders } from "../../../server/lib/scriptTemplate";
 import { timeAgo } from "../../lib/timeAgo";
 import { cn } from "../../lib/utils";
 import type { ConfigSummary } from "../../lib/api";
 import type { Dataset } from "../../../server/lib/types";
+import type { ScriptTemplate } from "../../../server/lib/scriptTemplate";
 import type { NavSection } from "../../../server/lib/preferences";
 
 /**
@@ -34,8 +37,10 @@ export type { NavSection };
 
 type Props = {
   configs: ConfigSummary[];
+  templates: ScriptTemplate[];
   datasets: Dataset[];
   activeConfigId: string | null;
+  activeTemplateId: string | null;
   activeDatasetId: string | null;
   /** Where the data lives — the scope, and whether the API answered. */
   storage: string;
@@ -46,6 +51,9 @@ type Props = {
   onDeleteConfig: (id: string) => void;
   onImportConfig: (file: File) => void;
   onExportConfig: (config: ConfigSummary) => void;
+  onNewTemplate: () => void;
+  onLoadTemplate: (template: ScriptTemplate) => void;
+  onDeleteTemplate: (id: string) => void;
   onLoadDataset: (dataset: Dataset) => void;
   onDeleteDataset: (id: string) => void;
   /** Which lists are folded shut, and the control that folds them. */
@@ -187,6 +195,19 @@ function Section({
   );
 }
 
+/**
+ * What a template row says under its name.
+ *
+ * How many times the rows go in, rather than how long the script is: a
+ * template with no dataset placeholder renders the run's details and none of
+ * its data, which is the one thing about a template worth noticing from the
+ * nav.
+ */
+function templateSubtitle(template: ScriptTemplate): string {
+  const uses = countPlaceholders(template.body);
+  return `${uses} dataset placeholder${uses === 1 ? "" : "s"} · ${timeAgo(template.updatedAt)}`;
+}
+
 /** Nothing here yet, said quietly rather than as a row of its own. */
 function EmptyNote({ children }: { children: React.ReactNode }) {
   return <p className="px-2 py-1.5 text-xs text-muted-foreground/70">{children}</p>;
@@ -206,8 +227,10 @@ function Avatar({ label }: { label: string }) {
 
 export function Sidebar({
   configs,
+  templates,
   datasets,
   activeConfigId,
+  activeTemplateId,
   activeDatasetId,
   storage,
   me,
@@ -216,6 +239,9 @@ export function Sidebar({
   onDeleteConfig,
   onImportConfig,
   onExportConfig,
+  onNewTemplate,
+  onLoadTemplate,
+  onDeleteTemplate,
   onLoadDataset,
   onDeleteDataset,
   collapsedSections,
@@ -232,7 +258,10 @@ export function Sidebar({
   // App built is a scope that answered rather than a failure line.
   const reachable = storage ? !/unreachable|unavailable/i.test(storage) : null;
 
-  const results = useMemo(() => searchNav(query, { configs, datasets }), [query, configs, datasets]);
+  const results = useMemo(
+    () => searchNav(query, { configs, templates, datasets }),
+    [query, configs, templates, datasets],
+  );
   const searching = query.trim().length > 0;
 
   /**
@@ -317,7 +346,7 @@ export function Sidebar({
               else searchInput.current?.blur();
             }}
             placeholder="Search everything…"
-            aria-label="Search configurations and datasets"
+            aria-label="Search configurations, script templates and datasets"
             className={cn(
               "focus-ring h-8 w-full rounded-md border bg-background pl-8 pr-14 text-sm",
               "placeholder:text-muted-foreground/70",
@@ -415,6 +444,42 @@ export function Sidebar({
                 />
               ))}
         </Section>
+
+        <div className="border-t">
+          <Section
+            id="templates"
+            icon={<FileCode2 className="size-3.5" />}
+            label="Script templates"
+            count={results.templates.length}
+            open={isOpen("templates", results.templates.length)}
+            onToggle={() => onToggleSection("templates")}
+            actions={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onNewTemplate}
+                aria-label="New script template"
+                title="New script template"
+              >
+                <Plus />
+              </Button>
+            }
+          >
+            {results.templates.length === 0
+              ? note("No script templates yet.")
+              : results.templates.map(({ item: template, hint }: Match<ScriptTemplate>) => (
+                  <ListRow
+                    key={template.id}
+                    active={template.id === activeTemplateId}
+                    title={template.name}
+                    subtitle={templateSubtitle(template)}
+                    hint={hint}
+                    onSelect={() => onLoadTemplate(template)}
+                    onDelete={() => onDeleteTemplate(template.id)}
+                  />
+                ))}
+          </Section>
+        </div>
 
         <div className="border-t">
           <Section

@@ -43,7 +43,8 @@ previous artifacts in place, so deploying without rebuilding pushes stale output
     product. Copied from `legacy/components/ui/`, so a change here is a change to a *copy*, not to
     a dependency.
   - `components/app/` — this product: `Sidebar`, `FieldRow`, `TypeSelect`, `PreviewTable`,
-    `RowDetail`, `ImportPanel`, `MetadataEditor`, `SettingsPanel`, `SplitHandle`.
+    `RowDetail`, `ImportPanel`, `MetadataEditor`, `ScriptTemplatePanel`, `CodeEditor`,
+    `SettingsPanel`, `SplitHandle`.
   - `lib/api.ts` — **the only file that knows a URL.** A component that calls `fetch` is a bug.
   - `styles/globals.css` — the design tokens. It is an *input*: `tools/build-css.mjs` compiles it
     to `src/client/generated/app.css` (gitignored) before the bundle is built.
@@ -85,6 +86,25 @@ previous artifacts in place, so deploying without rebuilding pushes stale output
   `/api/now/table/...` from the client would be a second, undocumented data path.
 - **Every view needs a URL.** `URLSearchParams`, never hash routing, and always check
   `window.self !== window.top` so the Polaris frame's breadcrumb stays in step.
+
+## Script templates
+
+`src/server/lib/scriptTemplate.ts` is shared the way `preferences.ts` is: compiled into the
+`sys_module` *and* bundled into the page, so it must stay Glide-free. It is the single list of
+placeholders — the render endpoint substitutes them, the palette offers them, and
+`highlight.ts` colours them, all from `PLACEHOLDERS`.
+
+Three properties are load-bearing, and `tests/scriptTemplate.test.ts` asserts each one:
+
+- every placeholder expands to a **JavaScript literal**, so a template never quotes a substitution;
+- substitution is **one pass with a replacement function**, because a generated row can contain
+  both a placeholder-shaped string and a `$&` that a string replacement would expand;
+- the rows go in as the **stored `rows_json` column verbatim**, so a script and a download of the
+  same dataset never disagree.
+
+Whether Save edits or forks a template is `canWrite` on the record — the write ACL's own answer.
+Do not reintroduce an owner comparison in the client: `sys_created_by` is a user name the page
+never reliably learns.
 
 ## The generator
 

@@ -60,7 +60,7 @@ export const x_1040823_ddg_now_user_pref = Table({
         /**
          * The folded nav lists, comma-separated.
          *
-         * A short list of two known names, so a string reads and filters in a
+         * A short list of known names, so a string reads and filters in a
          * list view where a JSON array would not. `normalizePreferences`
          * accepts this form and the page's array form alike.
          */
@@ -82,6 +82,19 @@ export const x_1040823_ddg_now_user_pref = Table({
                 json: 'JSON',
                 sql: 'SQL inserts',
             },
+        }),
+        /**
+         * The script template preselected beside the preview.
+         *
+         * A reference, so the form offers the templates that exist and the row
+         * says which one by name. Emptied rather than cascaded when that
+         * template goes: a preference pointing at nothing means "the first
+         * one", which is what it meant before anybody chose.
+         */
+        default_template: ReferenceColumn({
+            label: 'Default script template',
+            referenceTable: 'x_1040823_ddg_now_template',
+            cascadeRule: 'clear',
         }),
         preview_row_limit: IntegerColumn({ label: 'Preview row limit', default: 200 }),
     },

@@ -29,7 +29,7 @@ export type Theme = 'system' | 'light' | 'dark'
 export const THEMES: Theme[] = ['system', 'light', 'dark']
 
 /** The foldable lists in the left-hand nav, in the order they are drawn. */
-export const NAV_SECTIONS = ['configs', 'datasets'] as const
+export const NAV_SECTIONS = ['configs', 'templates', 'datasets'] as const
 
 export type NavSection = (typeof NAV_SECTIONS)[number]
 
@@ -54,6 +54,13 @@ export type Preferences = {
     defaultFieldType: FieldType
     /** Which download is offered first in the data pane. */
     defaultExportFormat: ExportFormat
+    /**
+     * The script template preselected beside the preview. Empty means the
+     * first one in the list, which is also what a template deleted since this
+     * was set falls back to — the picker checks, so a stale sys_id here is
+     * harmless rather than an error.
+     */
+    defaultTemplateId: string
     /** How many rows are pulled into the preview table at a time. */
     previewRowLimit: number
 }
@@ -74,8 +81,12 @@ export const DEFAULT_PREFERENCES: Preferences = {
     defaultRowCount: 25,
     defaultFieldType: 'word',
     defaultExportFormat: 'csv',
+    defaultTemplateId: '',
     previewRowLimit: 200,
 }
+
+/** A sys_id, which is the only thing `defaultTemplateId` may hold. */
+const SYS_ID = /^[0-9a-f]{32}$/i
 
 function clamp(value: unknown, fallback: number, bounds: { min: number; max: number }): number {
     // `Number(null)` and `Number('')` are both 0, which would clamp to the
@@ -105,7 +116,7 @@ function readBoolean(value: unknown): boolean {
  * The folded sections, from either shape the value arrives in.
  *
  * The page sends an array. The column stores a comma-separated list, because a
- * two-element set of known names reads and filters in a platform list view
+ * short set of known names reads and filters in a platform list view
  * where a JSON array does not. Accepting both means the record layer hands the
  * column straight over without a parsing step of its own, and a value typed
  * into the form by hand is still understood.
@@ -142,6 +153,13 @@ export function normalizePreferences(raw: unknown): Preferences {
             input.defaultExportFormat === 'json' || input.defaultExportFormat === 'sql'
                 ? input.defaultExportFormat
                 : 'csv',
+        // Not checked against the templates that exist: this module is shared
+        // with the page, which has no way to ask, and a template deleted after
+        // the preference was set would make a stored value invalid anyway. The
+        // picker falls back, so the shape is all that is worth enforcing.
+        defaultTemplateId: SYS_ID.test(String(input.defaultTemplateId ?? '').trim())
+            ? String(input.defaultTemplateId).trim()
+            : '',
         previewRowLimit: clamp(
             input.previewRowLimit,
             DEFAULT_PREFERENCES.previewRowLimit,

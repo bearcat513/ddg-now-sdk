@@ -3,17 +3,22 @@ import { RestApi } from '@servicenow/sdk/core'
 import {
     configHandler,
     createConfigHandler,
+    createTemplateHandler,
     datasetHandler,
     datasetRowsHandler,
+    datasetScriptHandler,
     deleteConfigHandler,
     deleteDatasetHandler,
+    deleteTemplateHandler,
     exportHandler,
     generateHandler,
     inferHandler,
     preferencesHandler,
     previewHandler,
+    templateHandler,
     updateConfigHandler,
     updatePreferencesHandler,
+    updateTemplateHandler,
 } from '../../server/rest/handlers'
 
 /**
@@ -21,8 +26,8 @@ import {
  *
  * `src/index.ts` had 36 routes. Most of those served features that did not come
  * across at all — auth, sessions, API keys, sharing, notes, Telegram — and what
- * is left is the surface this application actually has: schemas, runs and the
- * rows they produce.
+ * is left is the surface this application actually has: schemas, runs, the rows
+ * they produce, and the script templates those rows are rendered into.
  *
  * It is one surface for two callers. A CI pipeline and the UI Page use the
  * same routes, which is deliberate: the page renders the Bun application's own
@@ -177,13 +182,72 @@ RestApi({
             requestExample: '{ "theme": "dark", "defaultRowCount": 250 }',
         },
         {
+            $id: Now.ID['ddg-api-template-list'],
+            name: 'templates',
+            method: 'GET',
+            path: '/template',
+            script: templateHandler,
+            shortDescription:
+                'Every script template the caller can read, bodies included — a template is its body.',
+        },
+        {
+            $id: Now.ID['ddg-api-create-template'],
+            name: 'create-template',
+            method: 'POST',
+            path: '/template',
+            script: createTemplateHandler,
+            shortDescription: 'Store a script template.',
+            requestExample: '{ "name": "Seed incidents", "body": "var records = ${GENERATED_DATASET};" }',
+        },
+        {
+            $id: Now.ID['ddg-api-template'],
+            name: 'template',
+            method: 'GET',
+            path: '/template/{templateId}',
+            script: templateHandler,
+            shortDescription: 'One script template.',
+        },
+        {
+            $id: Now.ID['ddg-api-update-template'],
+            name: 'update-template',
+            method: 'PUT',
+            path: '/template/{templateId}',
+            script: updateTemplateHandler,
+            shortDescription: 'Save an edited template. Name and body together; both are the record.',
+        },
+        {
+            $id: Now.ID['ddg-api-delete-template'],
+            name: 'delete-template',
+            method: 'DELETE',
+            path: '/template/{templateId}',
+            script: deleteTemplateHandler,
+            shortDescription: 'Delete a script template.',
+        },
+        {
+            $id: Now.ID['ddg-api-dataset-script'],
+            name: 'dataset-script',
+            method: 'GET',
+            path: '/dataset/{datasetId}/script',
+            script: datasetScriptHandler,
+            shortDescription:
+                'A dataset rendered into a script template, served as a .js file. ?template=<sys_id> names the template.',
+            parameters: [
+                {
+                    $id: Now.ID['ddg-api-dataset-script-dataset-id'],
+                    name: 'datasetId',
+                    required: true,
+                    shortDescription: 'sys_id of the dataset whose rows go into the script.',
+                },
+            ],
+        },
+        {
             $id: Now.ID['ddg-api-export'],
             name: 'export',
             method: 'GET',
             path: '/dataset/{datasetId}/export',
             script: exportHandler,
             shortDescription:
-                'The rows themselves. Serves the stored attachment; ?format= re-serialises, which only works for a dataset stored as JSON.',
+                'The rows themselves, as a file. JSON by default, straight from the stored column; ?format=csv or ?format=sql serialises from it.',
         },
     ],
 })

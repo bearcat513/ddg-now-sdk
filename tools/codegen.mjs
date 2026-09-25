@@ -73,6 +73,7 @@ const COLUMN_FOR = {
     futureDate: 'DateTimeColumn',
     recentDate: 'DateTimeColumn',
     sequentialDate: 'DateTimeColumn',
+    glideDateTime: 'DateTimeColumn',
     birthDate: 'DateColumn',
 
     email: 'EmailColumn',

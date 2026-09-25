@@ -1,10 +1,10 @@
 /**
  * The scripted REST handlers.
  *
- * Fifteen routes, not thirty-six. The Bun server's route list carried auth,
- * sessions, API keys, sharing, notes, script templates and Telegram, none of
- * which came across. What is left is this application's actual subject —
- * schemas, runs, and the rows they produce:
+ * Twenty-one routes, not thirty-six. The Bun server's route list carried auth,
+ * sessions, API keys, sharing, notes and Telegram, none of which came across.
+ * What is left is this application's actual subject — schemas, runs, the rows
+ * they produce, and the scripts those rows are dropped into:
  *
  *   POST   /infer                      paste a structure, get a field list
  *   POST   /preview                    rows from a schema that has no record yet
@@ -21,6 +21,12 @@
  *   DELETE /dataset/{datasetId}        remove a run
  *   GET    /preferences                the caller's own workspace preferences
  *   PUT    /preferences                change some of them
+ *   GET    /template                   every script template the caller can read
+ *   POST   /template                   store one
+ *   GET    /template/{templateId}      one template, body included
+ *   PUT    /template/{templateId}      save an edited body
+ *   DELETE /template/{templateId}      remove it
+ *   GET    /dataset/{datasetId}/script a dataset rendered into a template
  *
  * They are also the UI Page's entire data layer. That is a deliberate change
  * of direction: the page used to reach records through the platform's own list
@@ -51,17 +57,27 @@ import {
     getDataset,
     listConfigs,
     listDatasets,
-    readDatasetAttachment,
+    readDatasetRows,
     replaceFields,
     summariseFields,
     updateConfig,
 } from '../db/db.ts'
 import { previewInline, previewRows, runToDataset, runToTable } from '../run.ts'
-import { serialize, type ExportFormat } from '../export/export.ts'
+import { exportFile, serialize, type ExportFormat } from '../export/export.ts'
 import { flatten } from '../lib/rows.ts'
 import { FIELD_TYPE_SET, type Field } from '../lib/types.ts'
 import { fail, guarded, json, param, readBody, type RestRequest, type RestResponse } from './http.ts'
 import { getPreferences, writePreferences } from '../db/preferences.ts'
+import {
+    createTemplate,
+    deleteTemplate,
+    getTemplate,
+    listTemplates,
+    updateTemplate,
+    validateTemplate,
+    type TemplateInput,
+} from '../db/templates.ts'
+import { renderScriptTemplate, scriptFileName, scriptTemplateValues } from '../lib/scriptTemplate.ts'
 
 /* --------------------------------- /infer -------------------------------- */
 
@@ -294,8 +310,10 @@ export function generateHandler(request: RestRequest, response: RestResponse): v
             })
         }
 
-        const format = (typeof body.format === 'string' ? body.format : 'csv') as ExportFormat
-        const outcome = runToDataset(configId, { rowCount, format })
+        // No `format` here: a run is stored as JSON and nothing else. What the
+        // caller wants it as is a question for `/export`, which answers it
+        // from the stored rows without generating them again.
+        const outcome = runToDataset(configId, { rowCount })
         if (!outcome.ok) return fail(response, 400, outcome.error)
 
         json(response, outcome.state === 'queued' ? 202 : 200, {
@@ -343,16 +361,16 @@ const DEFAULT_ROW_WINDOW = 200
  *
  * This is what fills the preview table when a dataset is opened from the
  * navigation list, and what gives the reference picker the column names of the
- * pool it is about to point at. It answers from the attachment, so it reflects
- * what was actually written rather than re-running the generator — reproducible
- * or not, a second run is a different act from reading the first one.
+ * pool it is about to point at. It answers from the stored `rows_json`, so it
+ * reflects what was actually written rather than re-running the generator —
+ * reproducible or not, a second run is a different act from reading the first
+ * one.
  *
- * Only a JSON attachment can be read back this way, and that is the reason the
- * UI generates as JSON: CSV and SQL are lossy about types, so parsing either
- * back into rows would hand the table strings where the generator produced
- * numbers, booleans and nulls. The export endpoint re-serialises JSON into
- * whichever of those the caller wants, so nothing is lost by storing the
- * richer form.
+ * That the stored form is JSON is what makes this endpoint possible at all:
+ * CSV and SQL are lossy about types, so parsing either back into rows would
+ * hand the table strings where the generator produced numbers, booleans and
+ * nulls. The export endpoint serialises into whichever of those the caller
+ * wants, so nothing is lost by storing the richer form.
  */
 export function datasetRowsHandler(request: RestRequest, response: RestResponse): void {
     guarded('dataset-rows', response, () => {
@@ -365,20 +383,12 @@ export function datasetRowsHandler(request: RestRequest, response: RestResponse)
             return fail(response, 409, `Dataset is ${dataset.state}${dataset.error ? `: ${dataset.error}` : ''}.`)
         }
 
-        const stored = readDatasetAttachment(datasetId)
-        if (!stored) return fail(response, 404, 'That dataset has no rows attached.')
+        const stored = readDatasetRows(datasetId)
+        if (!stored) return fail(response, 404, 'That dataset has no rows stored on it.')
 
-        if (!stored.fileName.toLowerCase().endsWith('.json')) {
-            return fail(
-                response,
-                400,
-                `This dataset is stored as ${stored.fileName.split('.').pop()}, which cannot be read back as rows. Download it instead, or re-run the configuration to store it as JSON.`,
-            )
-        }
-
-        // The JSON export nests dot paths on the way out; the table and the
-        // row inspector both work in the generator's flat column space.
-        const all = (JSON.parse(stored.body) as Record<string, unknown>[]).map((row) => flatten(row))
+        // The JSON nests dot paths on the way in; the table and the row
+        // inspector both work in the generator's flat column space.
+        const all = (JSON.parse(stored) as Record<string, unknown>[]).map((row) => flatten(row))
 
         const asked = Number(param(request, 'limit'))
         const limit = Number.isFinite(asked) && asked >= 0 ? asked : DEFAULT_ROW_WINDOW
@@ -400,11 +410,10 @@ export function datasetRowsHandler(request: RestRequest, response: RestResponse)
 /**
  * The rows themselves.
  *
- * The attachment is the stored form, so the common case — asking for the
- * format it was written in — streams it back untouched. Asking for a different
- * format re-serialises, which only works when the attachment *is* JSON: CSV
- * and SQL are lossy about types, and reconstructing them would silently change
- * values rather than fail.
+ * JSON is the stored form, so asking for JSON — the default — streams the
+ * column back untouched, byte for byte. CSV and SQL are made here, from the
+ * same string, so an export can never disagree with what the preview table
+ * showed or with what a rendered script carries.
  */
 export function exportHandler(request: RestRequest, response: RestResponse): void {
     guarded('export', response, () => {
@@ -417,32 +426,25 @@ export function exportHandler(request: RestRequest, response: RestResponse): voi
             return fail(response, 409, `Dataset is ${dataset.state}${dataset.error ? `: ${dataset.error}` : ''}.`)
         }
 
-        const stored = readDatasetAttachment(datasetId)
-        if (!stored) return fail(response, 404, 'That dataset has no rows attached.')
+        const stored = readDatasetRows(datasetId)
+        if (!stored) return fail(response, 404, 'That dataset has no rows stored on it.')
 
-        const wanted = (param(request, 'format') ?? '').toLowerCase() as ExportFormat | ''
-        const storedFormat = stored.fileName.split('.').pop()?.toLowerCase()
+        const asked = (param(request, 'format') ?? '').toLowerCase()
+        const wanted: ExportFormat = asked === 'csv' || asked === 'sql' ? asked : 'json'
 
-        if (!wanted || wanted === storedFormat) {
+        if (wanted === 'json') {
+            const file = exportFile(dataset.name, 'json')
             response.setStatus(200)
-            response.setContentType(storedFormat === 'json' ? 'application/json' : 'text/plain')
-            response.setHeader('Content-Disposition', `attachment; filename="${stored.fileName}"`)
-            response.getStreamWriter().writeString(stored.body)
+            response.setContentType(file.contentType)
+            response.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`)
+            response.getStreamWriter().writeString(stored)
             return
         }
 
-        if (storedFormat !== 'json') {
-            return fail(
-                response,
-                400,
-                `This dataset is stored as ${storedFormat}; only the stored format can be served. Re-run with { "format": "${wanted}" } to get it as ${wanted}.`,
-            )
-        }
-
-        // The JSON export nested the dot paths on the way out, so re-serialising
-        // to a flat format has to undo that first, or every nested column would
+        // The stored JSON nested the dot paths on the way in, so serialising to
+        // a flat format has to undo that first, or every nested column would
         // arrive as a single JSON cell.
-        const rows = (JSON.parse(stored.body) as Record<string, unknown>[]).map((row) => flatten(row))
+        const rows = (JSON.parse(stored) as Record<string, unknown>[]).map((row) => flatten(row))
         const file = serialize(rows, wanted, dataset.name)
         response.setStatus(200)
         response.setContentType(file.contentType)
@@ -484,5 +486,167 @@ export function preferencesHandler(_request: RestRequest, response: RestResponse
 export function updatePreferencesHandler(request: RestRequest, response: RestResponse): void {
     guarded('update-preferences', response, () => {
         json(response, 200, { preferences: writePreferences(readBody(request)) })
+    })
+}
+
+/* -------------------------------- /template ------------------------------ */
+
+/**
+ * The template body a request is asking to store, or a sentence saying why it
+ * cannot be. Shared by create and update, which take the same body.
+ */
+function readTemplateInput(request: RestRequest): { input: TemplateInput } | { error: string } {
+    const body = readBody(request)
+    const input: TemplateInput = {
+        name: typeof body.name === 'string' ? body.name : '',
+        // `body` is what the page and the Bun API both called it; `script` is
+        // what the column is called. Either spelling is accepted, because a
+        // pipeline reading the table and then posting back should not have to
+        // rename the field it just read.
+        body: typeof body.body === 'string' ? body.body : typeof body.script === 'string' ? body.script : '',
+    }
+    const error = validateTemplate(input)
+    return error ? { error } : { input }
+}
+
+/**
+ * Reads templates: the whole list, or one of them.
+ *
+ * Both arms carry the body, unlike the configuration list — see
+ * `listTemplates` for why a template is its body and a schema is not.
+ */
+export function templateHandler(request: RestRequest, response: RestResponse): void {
+    guarded('template', response, () => {
+        const templateId = request.pathParams?.templateId
+        if (templateId) {
+            const template = getTemplate(templateId)
+            if (!template) return fail(response, 404, 'No such script template, or you may not read it.')
+            return json(response, 200, template)
+        }
+        json(response, 200, { templates: listTemplates() })
+    })
+}
+
+export function createTemplateHandler(request: RestRequest, response: RestResponse): void {
+    guarded('create-template', response, () => {
+        const read = readTemplateInput(request)
+        if ('error' in read) return fail(response, 400, read.error)
+
+        const template = createTemplate(read.input)
+        if (!template) return fail(response, 403, 'Could not save the script template — check your create access.')
+        json(response, 201, template)
+    })
+}
+
+/**
+ * Saves an edited template.
+ *
+ * Name and body together, always: a template is a name and a script, and there
+ * is no edit of one that is not an edit of the record. That is the opposite
+ * call from `updateConfigHandler`, which treats an absent `fields` as "not
+ * part of this edit" — but a configuration has a schema that a rename must not
+ * be able to wipe, and a template has nothing to lose that way.
+ */
+export function updateTemplateHandler(request: RestRequest, response: RestResponse): void {
+    guarded('update-template', response, () => {
+        const templateId = request.pathParams?.templateId
+        if (!templateId) return fail(response, 400, 'No template id in the path.')
+
+        const read = readTemplateInput(request)
+        if ('error' in read) return fail(response, 400, read.error)
+
+        const template = updateTemplate(templateId, read.input)
+        if (!template) return fail(response, 404, 'No such script template, or it is not yours to change.')
+        json(response, 200, template)
+    })
+}
+
+export function deleteTemplateHandler(request: RestRequest, response: RestResponse): void {
+    guarded('delete-template', response, () => {
+        const templateId = request.pathParams?.templateId
+        if (!templateId) return fail(response, 400, 'No template id in the path.')
+        if (!deleteTemplate(templateId)) {
+            return fail(response, 404, 'No such script template, or it is not yours to delete.')
+        }
+        json(response, 200, { ok: true })
+    })
+}
+
+/* --------------------------- /dataset/{id}/script ------------------------ */
+
+/**
+ * A dataset rendered into a template: the point of the whole feature.
+ *
+ * The rows go in as the *stored column, byte for byte* — not as rows this
+ * handler re-serialised — so a script and a download of the same dataset can
+ * never disagree about what was generated. The parse below is only for the
+ * column list, which is a placeholder of its own.
+ *
+ * Which template is a query parameter rather than a second path segment,
+ * because the dataset is what this route is about: the same run is dropped
+ * into several scripts without being generated again, which is exactly what
+ * the picker beside the preview table does.
+ *
+ * It answers as a file, like `/export`, and for the same reason — what comes
+ * back is a script somebody is about to run, not a payload to be unwrapped.
+ */
+export function datasetScriptHandler(request: RestRequest, response: RestResponse): void {
+    guarded('dataset-script', response, () => {
+        const datasetId = request.pathParams?.datasetId
+        if (!datasetId) return fail(response, 400, 'No dataset id in the path.')
+
+        const templateId = param(request, 'template')
+        if (!templateId) return fail(response, 400, 'Name a template with ?template=<sys_id>; see GET /template.')
+
+        const dataset = getDataset(datasetId)
+        if (!dataset) return fail(response, 404, 'No such dataset, or you may not read it.')
+        if (dataset.state !== 'complete') {
+            return fail(response, 409, `Dataset is ${dataset.state}${dataset.error ? `: ${dataset.error}` : ''}.`)
+        }
+
+        const template = getTemplate(templateId)
+        if (!template) return fail(response, 404, 'No such script template, or you may not read it.')
+
+        const stored = readDatasetRows(datasetId)
+        if (!stored) return fail(response, 404, 'That dataset has no rows stored on it.')
+
+        // Flattened, because the columns a script is told about are the
+        // generator's flat column space — the same names `/rows` reports.
+        const rows = (JSON.parse(stored) as Record<string, unknown>[]).map((row) => flatten(row))
+
+        // A configuration that has since been deleted leaves every
+        // configuration placeholder rendering as `null`, which is still a
+        // literal the script can test.
+        const config = dataset.configId ? getConfig(dataset.configId) : null
+
+        const script = renderScriptTemplate(
+            template.body,
+            scriptTemplateValues({
+                dataset: {
+                    id: dataset.id,
+                    name: dataset.name,
+                    rowCount: dataset.rowCount,
+                    fieldCount: dataset.fieldCount,
+                    createdAt: dataset.createdAt,
+                },
+                config: config
+                    ? {
+                          id: config.id,
+                          name: config.name,
+                          seed: config.seed,
+                          locale: config.locale,
+                          fields: config.fields,
+                          metadata: config.metadata,
+                      }
+                    : null,
+                datasetJson: stored,
+                columns: [...new Set(rows.flatMap((row) => Object.keys(row)))],
+            }),
+        )
+
+        response.setStatus(200)
+        response.setContentType('text/javascript')
+        response.setHeader('Content-Disposition', `attachment; filename="${scriptFileName(template.name)}"`)
+        response.getStreamWriter().writeString(script)
     })
 }
