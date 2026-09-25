@@ -25,15 +25,16 @@ export const TABS = ['import', 'schema', 'scripts'] as const
 export type Tab = (typeof TABS)[number]
 
 /**
- * Which thing the main pane is: the editor, settings, or a whiteboard.
+ * Which thing the main pane is: the editor, settings, a whiteboard, or the
+ * API reference.
  *
- * Settings and whiteboards are views rather than dialogs, so they are
+ * Settings, whiteboards and the reference are views rather than dialogs, so they are
  * addressable like the rest — someone can send a colleague the link and it
  * opens there. Each keeps whatever `config` and `dataset` were in the query
  * while it is on screen, so closing it lands back on the schema that was open
  * rather than on an empty editor.
  */
-export const VIEWS = ['editor', 'settings', 'whiteboard'] as const
+export const VIEWS = ['editor', 'settings', 'whiteboard', 'docs'] as const
 
 export type View = (typeof VIEWS)[number]
 
@@ -101,6 +102,7 @@ export function pathFor(state: WorkspaceState): string {
 /** The document title for a state, so titles are written in one place. */
 export function titleFor(state: WorkspaceState, configName?: string): string {
     if (state.view === 'settings') return 'Dummy Data Generator — Settings'
+    if (state.view === 'docs') return 'Dummy Data Generator — API reference'
     // While a board is in front, the label the caller passes is its name.
     if (state.view === 'whiteboard') return `Dummy Data Generator — ${configName || 'Whiteboard'}`
     // The scripts pane is about the template rather than the schema behind it,

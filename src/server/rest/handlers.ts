@@ -1,7 +1,7 @@
 /**
  * The scripted REST handlers.
  *
- * Twenty-six routes. The Bun server's thirty-six carried auth, sessions, API
+ * Twenty-seven routes. The Bun server's thirty-six carried auth, sessions, API
  * keys, sharing, notes and Telegram, none of which came across. What is left
  * is this application's actual subject — schemas, runs, the rows they produce,
  * the scripts those rows are dropped into — and the whiteboards a team draws
@@ -33,6 +33,7 @@
  *   GET    /whiteboard/{whiteboardId}  one board, drawing included
  *   PUT    /whiteboard/{whiteboardId}  save a drawing
  *   DELETE /whiteboard/{whiteboardId}  remove it
+ *   GET    /openapi                    all of the above, as an OpenAPI document
  *
  * They are also the UI Page's entire data layer. That is a deliberate change
  * of direction: the page used to reach records through the platform's own list
@@ -54,6 +55,7 @@
  * A handler that re-implemented the check here would be a second, weaker copy.
  */
 
+import { gs } from '@servicenow/glide'
 import { inferSchema } from '../infer/infer.ts'
 import {
     createConfig,
@@ -92,6 +94,7 @@ import {
 } from '../db/whiteboards.ts'
 import { EMPTY_WHITEBOARD_SCENE, validateWhiteboard, type WhiteboardInput } from '../lib/whiteboard.ts'
 import { renderScriptTemplate, scriptFileName, scriptTemplateValues } from '../lib/scriptTemplate.ts'
+import { buildOpenApiDocument } from '../lib/openapi.ts'
 
 /* --------------------------------- /infer -------------------------------- */
 
@@ -743,5 +746,25 @@ export function datasetScriptHandler(request: RestRequest, response: RestRespons
         response.setContentType('text/javascript')
         response.setHeader('Content-Disposition', `attachment; filename="${scriptFileName(template.name)}"`)
         response.getStreamWriter().writeString(script)
+    })
+}
+
+/* -------------------------------- /openapi ------------------------------- */
+
+/**
+ * The API described as an OpenAPI 3.0 document — what the reference page
+ * renders and what Postman or Bruno import.
+ *
+ * Streamed rather than set as the body, like `/export`, so it arrives without
+ * the platform's `result` envelope: a tool importing it by URL expects the
+ * document at the top level. `glide.servlet.uri` names the instance, so a
+ * collection imported from here points back at this instance.
+ */
+export function openApiHandler(_request: RestRequest, response: RestResponse): void {
+    guarded('openapi', response, () => {
+        const document = buildOpenApiDocument({ instanceUrl: gs.getProperty('glide.servlet.uri', '') })
+        response.setStatus(200)
+        response.setContentType('application/json')
+        response.getStreamWriter().writeString(JSON.stringify(document, null, 2))
     })
 }

@@ -45,6 +45,8 @@ previous artifacts in place, so deploying without rebuilding pushes stale output
   - `components/app/` — this product: `Sidebar`, `FieldRow`, `TypeSelect`, `PreviewTable`,
     `RowDetail`, `ImportPanel`, `MetadataEditor`, `ScriptTemplatePanel`, `CodeEditor`,
     `SettingsPanel`, `SplitHandle`, `WhiteboardPanel`, `WhiteboardCanvas`.
+  - `components/docs/` — the API reference view (`?view=docs`): `DocsPanel`, `OperationCard`,
+    `SchemaView`, `CodeBlock`, `Markdown`, `MethodBadge`. Copied from `legacy/components/docs/`.
   - `lib/api.ts` — **the only file that knows a URL.** A component that calls `fetch` is a bug.
   - `styles/globals.css` — the design tokens. It is an *input*: `tools/build-css.mjs` compiles it
     to `src/client/generated/app.css` (gitignored) before the bundle is built.
@@ -105,6 +107,18 @@ Three properties are load-bearing, and `tests/scriptTemplate.test.ts` asserts ea
 Whether Save edits or forks a template is `canWrite` on the record — the write ACL's own answer.
 Do not reintroduce an owner comparison in the client: `sys_created_by` is a user name the page
 never reliably learns.
+
+## API reference
+
+`src/server/lib/openapi.ts` describes every route in `src/fluent/rest/api.now.ts` as an OpenAPI
+3.0 document. `GET /openapi` streams it (unwrapped, like `/export`), and the `?view=docs` view
+renders that document and lets you try each call on the page's session. It is shared the way
+`scriptTemplate.ts` is, so it must stay Glide-free.
+
+**Adding, removing or changing a route means changing its `OPERATIONS` entry too.**
+`tests/openapi.test.ts` reads the routes out of `api.now.ts` and fails if the two lists differ.
+JSON responses are described inside the platform's `{ "result": … }` envelope, because that is
+what actually arrives on the wire.
 
 ## Whiteboards
 

@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   Settings2,
+  BookOpen,
   Trash2,
   Upload,
   X,
@@ -73,6 +74,9 @@ type Props = {
   onOpenSettings: () => void;
   /** Whether that view is the one on screen, so the control reads as current. */
   settingsOpen: boolean;
+  /** Opens the API reference, a view like settings. */
+  onOpenDocs: () => void;
+  docsOpen: boolean;
 };
 
 function ListRow({
@@ -270,6 +274,8 @@ export function Sidebar({
   onCollapse,
   onOpenSettings,
   settingsOpen,
+  onOpenDocs,
+  docsOpen,
 }: Props) {
   const fileInput = useRef<HTMLInputElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -577,6 +583,21 @@ export function Sidebar({
         {/* Beside the name on purpose: the preferences behind it belong to that
             account rather than to this browser, and this is the one corner of
             the page that is already about who you are. */}
+        {/* The API reference sits with settings rather than in the lists above:
+            it is about the app, not a record in it. */}
+        <button
+          type="button"
+          onClick={onOpenDocs}
+          aria-label="API reference"
+          aria-current={docsOpen ? "page" : undefined}
+          title="API reference"
+          className={cn(
+            "focus-ring shrink-0 rounded-md p-1.5 transition-colors",
+            docsOpen ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <BookOpen className="size-4" />
+        </button>
         <button
           type="button"
           onClick={onOpenSettings}

@@ -25,6 +25,8 @@ import type { Dataset, Field, SchemaConfig } from '../../server/lib/types'
 import type { Preferences } from '../../server/lib/preferences'
 import type { ScriptTemplate } from '../../server/lib/scriptTemplate'
 import type { Whiteboard, WhiteboardInput, WhiteboardSummary } from '../../server/lib/whiteboard'
+import { OPENAPI_FILE_NAME, OPENAPI_PATH } from '../../server/lib/openapi'
+import type { OpenApiDoc, TrialRequest } from './openapiDoc'
 
 export const API_BASE = '/api/x_1040823_ddg_now/ddg'
 
@@ -131,6 +133,15 @@ async function fetchText(url: string, what: string): Promise<string> {
 }
 
 /* --------------------------------- types --------------------------------- */
+
+/** What came back from a call made on the reference page, whatever it was. */
+export type TrialResponse = {
+    status: number
+    statusText: string
+    ms: number
+    headers: [string, string][]
+    body: string
+}
 
 export type InferResult = {
     detected: 'json' | 'typescript' | 'sql'
@@ -370,4 +381,47 @@ export const api = {
         request<{ preferences: Preferences }>('/preferences', { method: 'PUT', ...body(patch) }).then(
             (result) => result.preferences,
         ),
+
+    /* ----------------------------- reference ------------------------------ */
+
+    /**
+     * The API described as an OpenAPI document, which the reference page
+     * renders. Streamed without the `result` envelope, so it is read as text.
+     */
+    openApiDocument: () =>
+        fetchText(`${API_BASE}${OPENAPI_PATH}`, 'The API document').then((text) => JSON.parse(text) as OpenApiDoc),
+
+    openApiFileName: OPENAPI_FILE_NAME,
+
+    /** Where the reference page's calls go: this instance, under the API root. */
+    apiBaseUrl: () => `${window.location.origin}${API_BASE}`,
+
+    /**
+     * A call composed on the reference page, sent as it is and answered as it
+     * came back — status, headers and raw body, error or not — because showing
+     * exactly that is the whole point of trying an endpoint. It carries the
+     * page's session like every other request here; nothing else is added.
+     */
+    trial: async (request: TrialRequest): Promise<TrialResponse> => {
+        const started = performance.now()
+        const response = await fetch(request.url, {
+            method: request.method,
+            headers: {
+                ...Object.fromEntries(request.headers.map((header) => [header.name, header.value])),
+                'X-UserToken': window.g_ck ?? '',
+            },
+            ...(request.body === undefined ? {} : { body: request.body }),
+        })
+        const body = await response.text()
+        // `forEach` rather than `entries()`: the page's lib list has no DOM.Iterable.
+        const headers: [string, string][] = []
+        response.headers.forEach((value, name) => headers.push([name, value]))
+        return {
+            status: response.status,
+            statusText: response.statusText,
+            ms: Math.round(performance.now() - started),
+            headers,
+            body,
+        }
+    },
 }

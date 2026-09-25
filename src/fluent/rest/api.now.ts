@@ -13,6 +13,7 @@ import {
     exportHandler,
     generateHandler,
     inferHandler,
+    openApiHandler,
     preferencesHandler,
     previewHandler,
     templateHandler,
@@ -293,6 +294,15 @@ RestApi({
             script: exportHandler,
             shortDescription:
                 'The rows themselves, as a file. JSON by default, straight from the stored column; ?format=csv or ?format=sql serialises from it.',
+        },
+        {
+            $id: Now.ID['ddg-api-openapi'],
+            name: 'openapi',
+            method: 'GET',
+            path: '/openapi',
+            script: openApiHandler,
+            shortDescription:
+                'This API as an OpenAPI 3.0 document, unwrapped, for Postman, Bruno and the reference page.',
         },
     ],
 })

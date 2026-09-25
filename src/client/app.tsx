@@ -27,6 +27,7 @@ import { SettingsPanel, type SaveState } from "./components/app/SettingsPanel";
 import { Sidebar, type NavSection } from "./components/app/Sidebar";
 import { SplitHandle } from "./components/app/SplitHandle";
 import { WhiteboardPanel, type BoardGuard } from "./components/app/WhiteboardPanel";
+import { DocsPanel } from "./components/docs/DocsPanel";
 import { api, type ConfigSummary } from "./lib/api";
 import { configFileName, parseConfigFile, serializeConfigFile } from "./lib/configFile";
 import { fromPairs, toPairs, type MetadataPair } from "./lib/metadata";
@@ -716,7 +717,7 @@ export function App() {
   };
 
   /**
-   * Settings, and back again.
+   * Settings or the API reference, and back again.
    *
    * Both go through `publishLocation` rather than setting `view` directly, so
    * the address bar, the document title and the Polaris breadcrumb move with the
@@ -1102,6 +1103,8 @@ export function App() {
           onCollapse={() => updatePreferences({ sidebarCollapsed: true })}
           onOpenSettings={() => confirmLeaveBoard() && showSettings("settings")}
           settingsOpen={view === "settings"}
+          onOpenDocs={() => confirmLeaveBoard() && showSettings("docs")}
+          docsOpen={view === "docs"}
         />
       )}
 
@@ -1119,6 +1122,8 @@ export function App() {
           onClose={() => showSettings("editor")}
           leading={expandSidebarButton}
         />
+      ) : view === "docs" ? (
+        <DocsPanel onClose={() => showSettings("editor")} leading={expandSidebarButton} />
       ) : view === "whiteboard" ? (
         boardLoading ? (
           <main className="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">

@@ -153,6 +153,10 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '491f3003fbc7423ab51db7a45cb79ddb'
                     }
+                    'ddg-api-openapi': {
+                        table: 'sys_ws_operation'
+                        id: '07a2d4f6f8bb4f208e0aa23c7808be41'
+                    }
                     'ddg-api-preferences': {
                         table: 'sys_ws_operation'
                         id: '371ff3ca3de340fb9a8e760b967c6e68'
@@ -466,6 +470,10 @@ declare global {
                         table: 'sys_module'
                         id: 'aa92abef21a240529dfe1837d65c420d'
                     }
+                    src_server_lib_openapi_ts: {
+                        table: 'sys_module'
+                        id: '0e2607795578450bb7aff6f31571a976'
+                    }
                     src_server_lib_preferences_ts: {
                         table: 'sys_module'
                         id: 'f58afe6e72534e9a852045bf70ffd8ce'
@@ -776,6 +784,13 @@ declare global {
                     },
                     {
                         table: 'sys_ux_lib_asset'
+                        id: '0cfe1f268d0b4991badebe2329430703'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--c9bffedf'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
                         id: '0e7e2dbb9e4a478bbe134b571786d436'
                         key: {
                             name: 'x_1040823_ddg_now/vendor-@excalidraw-excalidraw--a4a37b31.js.map'
@@ -929,6 +944,7 @@ declare global {
                     {
                         table: 'sys_ux_lib_asset'
                         id: '1c11166678c847a8aef89222aeba14ac'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--fefe7901.js.map'
                         }
@@ -1796,6 +1812,7 @@ declare global {
                     {
                         table: 'sys_ux_lib_asset'
                         id: '57f9ea141fb644b09e75230a3abf3518'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--fefe7901'
                         }
@@ -2499,6 +2516,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '91e47bc6bb5f45b8a5ab1c397e39488f'
+                        key: {
+                            application_file: '0cfe1f268d0b4991badebe2329430703'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '921b2538f4d84aa0901ecd9025d020cb'
                         key: {
@@ -3132,6 +3157,7 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: 'b91aebb09a324b699015f79590ed1c0a'
+                        deleted: true
                         key: {
                             application_file: '57f9ea141fb644b09e75230a3abf3518'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
@@ -3488,6 +3514,14 @@ declare global {
                             name: 'x_1040823_ddg_now_user_pref'
                             element: 'sidebar_collapsed'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'd52e1763609a4d26b75edc0f9c54d1d3'
+                        key: {
+                            application_file: 'fa17939fda824078aa6ffb2fbf51238b'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
                         }
                     },
                     {
@@ -3912,6 +3946,7 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: 'f2ef9efab3f34ca1bb44fa0264f9a16a'
+                        deleted: true
                         key: {
                             application_file: '1c11166678c847a8aef89222aeba14ac'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
@@ -4018,6 +4053,13 @@ declare global {
                         id: 'f8dbc3dce11f4a7b96d9a99cdc809663'
                         key: {
                             name: 'x_1040823_ddg_now/fr-FR-RHASNOE6.js.map'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: 'fa17939fda824078aa6ffb2fbf51238b'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--c9bffedf.js.map'
                         }
                     },
                     {
