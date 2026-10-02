@@ -55,6 +55,9 @@ function readRow(gr: GlideRecordSecure<typeof PREF_TABLE>): Preferences {
         defaultExportFormat: gr.getValue('default_export_format'),
         defaultTemplateId: gr.getValue('default_template'),
         previewRowLimit: gr.getValue('preview_row_limit'),
+        seedNewSchemas: gr.getValue('seed_new_schemas'),
+        confirmDeletes: gr.getValue('confirm_deletes'),
+        whiteboardAutosave: gr.getValue('whiteboard_autosave'),
     })
 }
 
@@ -68,6 +71,9 @@ function writeRow(gr: GlideRecordSecure<typeof PREF_TABLE>, preferences: Prefere
     gr.setValue('default_export_format', preferences.defaultExportFormat)
     gr.setValue('default_template', preferences.defaultTemplateId)
     gr.setValue('preview_row_limit', String(preferences.previewRowLimit))
+    gr.setValue('seed_new_schemas', String(preferences.seedNewSchemas))
+    gr.setValue('confirm_deletes', String(preferences.confirmDeletes))
+    gr.setValue('whiteboard_autosave', String(preferences.whiteboardAutosave))
 }
 
 /** What this account prefers, or the defaults if it has never said. */

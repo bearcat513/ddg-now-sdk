@@ -288,6 +288,9 @@ export function App() {
    * Sent as a whole set rather than by deleting the row: a reset is a change
    * like any other, and the row stays the one the account already has.
    */
+  /** A delete's "are you sure", unless this account has asked not to be. */
+  const confirmDelete = (message: string) => !preferencesRef.current.confirmDeletes || window.confirm(message);
+
   const resetPreferences = useCallback(
     () => updatePreferences(DEFAULT_PREFERENCES),
     [updatePreferences],
@@ -402,7 +405,8 @@ export function App() {
     setActiveConfigId(null);
     setName("Untitled schema");
     setRowCount(preferencesRef.current.defaultRowCount);
-    setSeed("");
+    // Base 36 so it reads as a seed rather than a number to do arithmetic on.
+    setSeed(preferencesRef.current.seedNewSchemas ? Math.random().toString(36).slice(2, 10) : "");
     setLocale("");
     setMetadata([]);
     setMetadataOpen(false);
@@ -555,7 +559,7 @@ export function App() {
 
   async function removeTemplate(id: string) {
     const template = templates.find(entry => entry.id === id);
-    if (!window.confirm(`Delete the script template "${template?.name ?? id}"? This cannot be undone.`)) return;
+    if (!confirmDelete(`Delete the script template "${template?.name ?? id}"? This cannot be undone.`)) return;
 
     try {
       await api.deleteTemplate(id);
@@ -656,7 +660,7 @@ export function App() {
 
   async function removeBoard(id: string) {
     const target = whiteboards.find(entry => entry.id === id);
-    if (!window.confirm(`Delete the whiteboard "${target?.name ?? id}"? This cannot be undone.`)) return;
+    if (!confirmDelete(`Delete the whiteboard "${target?.name ?? id}"? This cannot be undone.`)) return;
 
     try {
       await api.deleteWhiteboard(id);
@@ -916,7 +920,7 @@ export function App() {
   async function removeConfig(id: string) {
     const config = configs.find(c => c.id === id);
     if (
-      !window.confirm(
+      !confirmDelete(
         `Delete the configuration "${config?.name ?? id}"? Datasets generated from it are kept. This cannot be undone.`,
       )
     ) {
@@ -935,7 +939,7 @@ export function App() {
   async function removeDataset(id: string) {
     const target = datasets.find(d => d.id === id);
     if (
-      !window.confirm(
+      !confirmDelete(
         `Delete the dataset "${target?.name ?? id}"${
           target ? ` and its ${target.rowCount.toLocaleString()} rows` : ""
         }? This cannot be undone.`,
@@ -1139,6 +1143,7 @@ export function App() {
               leading={expandSidebarButton}
               banner={bannerNode}
               guard={boardGuard}
+              autosave={preferences.whiteboardAutosave}
               onNew={() => confirmLeaveBoard() && startNewBoard()}
               onSaved={onBoardSaved}
               onError={message => setBanner({ kind: "error", lines: [message] })}

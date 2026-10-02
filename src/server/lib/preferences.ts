@@ -63,6 +63,20 @@ export type Preferences = {
     defaultTemplateId: string
     /** How many rows are pulled into the preview table at a time. */
     previewRowLimit: number
+    /**
+     * Whether a new schema starts with a random seed filled in rather than an
+     * empty box. An empty seed draws a fresh one per run; a filled one makes
+     * every run of the schema reproducible until someone clears it.
+     */
+    seedNewSchemas: boolean
+    /** Whether deleting a schema, dataset, template or whiteboard asks first. */
+    confirmDeletes: boolean
+    /**
+     * Whether a whiteboard you own saves itself a moment after you stop
+     * drawing. Off, it saves on Save like a new board does — and leaving it
+     * with unsaved changes asks first, the same way.
+     */
+    whiteboardAutosave: boolean
 }
 
 /** Bounds shared by the panel's inputs and the normalizer below. */
@@ -83,6 +97,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
     defaultExportFormat: 'csv',
     defaultTemplateId: '',
     previewRowLimit: 200,
+    seedNewSchemas: false,
+    confirmDeletes: true,
+    whiteboardAutosave: true,
 }
 
 /** A sys_id, which is the only thing `defaultTemplateId` may hold. */
@@ -108,7 +125,10 @@ function clamp(value: unknown, fallback: number, bounds: { min: number; max: num
  * sidebar that is remembered and one that silently is not, and anything else —
  * absent, empty, nonsense — is false, which is what an unset preference means.
  */
-function readBoolean(value: unknown): boolean {
+function readBoolean(value: unknown, fallback = false): boolean {
+    // Absent is the default rather than false, so a preference that ships
+    // switched on is not switched off by a row written before it existed.
+    if (value === null || value === undefined || value === '') return fallback
     return value === true || value === 1 || value === 'true' || value === '1'
 }
 
@@ -165,5 +185,8 @@ export function normalizePreferences(raw: unknown): Preferences {
             DEFAULT_PREFERENCES.previewRowLimit,
             PREFERENCE_LIMITS.previewRows,
         ),
+        seedNewSchemas: readBoolean(input.seedNewSchemas, DEFAULT_PREFERENCES.seedNewSchemas),
+        confirmDeletes: readBoolean(input.confirmDeletes, DEFAULT_PREFERENCES.confirmDeletes),
+        whiteboardAutosave: readBoolean(input.whiteboardAutosave, DEFAULT_PREFERENCES.whiteboardAutosave),
     }
 }

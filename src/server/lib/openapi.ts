@@ -656,6 +656,9 @@ function preferencesSchema(): Json {
             minimum: PREFERENCE_LIMITS.editorSplit.min,
             maximum: PREFERENCE_LIMITS.editorSplit.max,
         },
+        seedNewSchemas: { description: 'Whether a new schema starts with a random seed filled in.' },
+        confirmDeletes: { description: 'Whether the page asks before deleting anything.' },
+        whiteboardAutosave: { description: 'Whether a whiteboard you own saves itself after you stop drawing.' },
     }
 
     const properties: Record<string, Json> = {}

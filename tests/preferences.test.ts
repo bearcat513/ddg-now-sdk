@@ -143,3 +143,19 @@ test('normalizing is idempotent, which is what lets both sides do it', () => {
     const once = normalizePreferences(messy)
     assert.deepEqual(normalizePreferences(once), once)
 })
+
+test('a boolean that ships switched on stays on until it is turned off', () => {
+    // A row written before these preferences existed has nothing in their
+    // columns, and nothing must not read as "off".
+    for (const empty of ['', null, undefined]) {
+        const result = normalizePreferences({ confirmDeletes: empty, whiteboardAutosave: empty })
+        assert.equal(result.confirmDeletes, true, String(empty))
+        assert.equal(result.whiteboardAutosave, true, String(empty))
+    }
+    for (const off of [false, 0, 'false', '0']) {
+        assert.equal(normalizePreferences({ confirmDeletes: off }).confirmDeletes, false, String(off))
+    }
+    assert.equal(normalizePreferences({ whiteboardAutosave: '0' }).whiteboardAutosave, false)
+    assert.equal(normalizePreferences({ seedNewSchemas: '1' }).seedNewSchemas, true)
+    assert.equal(normalizePreferences({}).seedNewSchemas, false)
+})

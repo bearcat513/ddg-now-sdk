@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Check, Loader2, Palette, RotateCcw, Settings2, SlidersHorizontal, X } from "lucide-react";
+import { Check, Loader2, Palette, RotateCcw, Settings2, SlidersHorizontal, ToggleRight, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -287,6 +287,33 @@ export function SettingsPanel({
           </Section>
 
           <Section
+            icon={<ToggleRight className="size-4" />}
+            title="Behaviour"
+            description="When the page asks first, and when it saves for you."
+          >
+            <Setting label="Deleting" hint="Whether removing a schema, dataset, template or whiteboard asks first.">
+              <ToggleSetting
+                id="pref-confirm-deletes"
+                checked={preferences.confirmDeletes}
+                onChange={confirmDeletes => onChange({ confirmDeletes })}
+                label="Ask before deleting"
+              />
+            </Setting>
+
+            <Setting
+              label="Whiteboards"
+              hint="Your own boards save a moment after you stop drawing. Off, they save on Save, and leaving with unsaved changes asks first."
+            >
+              <ToggleSetting
+                id="pref-whiteboard-autosave"
+                checked={preferences.whiteboardAutosave}
+                onChange={whiteboardAutosave => onChange({ whiteboardAutosave })}
+                label="Save automatically"
+              />
+            </Setting>
+          </Section>
+
+          <Section
             icon={<SlidersHorizontal className="size-4" />}
             title="Defaults"
             description="What a new schema, a new field and the preview start out as. Changes save as you make them."
@@ -302,6 +329,18 @@ export function SettingsPanel({
                 min={PREFERENCE_LIMITS.rowCount.min}
                 max={PREFERENCE_LIMITS.rowCount.max}
                 onCommit={defaultRowCount => onChange({ defaultRowCount })}
+              />
+            </Setting>
+
+            <Setting
+              label="Seed"
+              hint="Fill in a random seed for a new schema, so every run of it is reproducible until you clear it."
+            >
+              <ToggleSetting
+                id="pref-seed"
+                checked={preferences.seedNewSchemas}
+                onChange={seedNewSchemas => onChange({ seedNewSchemas })}
+                label="Seed new schemas"
               />
             </Setting>
 

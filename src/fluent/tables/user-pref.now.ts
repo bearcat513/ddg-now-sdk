@@ -18,7 +18,7 @@ import { BooleanColumn, ChoiceColumn, IntegerColumn, ReferenceColumn, StringColu
  * makes about the field list: a fixed, known set of values belongs in columns,
  * where list views, filtering and a form come free. `FieldOptions` stays JSON
  * over in `field.now.ts` because it is a genuinely heterogeneous bag of forty
- * optional properties; eight named preferences are not that.
+ * optional properties; a dozen named preferences are not that.
  *
  * Every column has a default equal to `DEFAULT_PREFERENCES` in
  * `src/server/lib/preferences.ts`, so a row created through a form rather than
@@ -97,6 +97,9 @@ export const x_1040823_ddg_now_user_pref = Table({
             cascadeRule: 'clear',
         }),
         preview_row_limit: IntegerColumn({ label: 'Preview row limit', default: 200 }),
+        seed_new_schemas: BooleanColumn({ label: 'Seed new schemas', default: false }),
+        confirm_deletes: BooleanColumn({ label: 'Confirm deletes', default: true }),
+        whiteboard_autosave: BooleanColumn({ label: 'Autosave whiteboards', default: true }),
     },
     index: [{ name: 'ddg_pref_user', unique: true, element: 'user' }],
 })

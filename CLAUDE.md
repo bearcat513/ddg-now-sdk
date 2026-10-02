@@ -135,7 +135,7 @@ for a `.excalidraw` file (`serializeAsJSON(..., 'local')`), pasted images includ
   fonts into `src/client/generated/excalidraw/`, and the canvas imports that copy.
 - Drawing fonts are loaded at runtime from Excalidraw's CDN fallback (`esm.sh`) unless
   `window.EXCALIDRAW_ASSET_PATH` is set.
-- A board you own saves itself a moment after you stop drawing. New boards and other people's
+- A board you own saves itself a moment after you stop drawing, unless the `whiteboardAutosave` preference is off. New boards and other people's
   boards only save when you press Save, and saving someone else's board creates your own copy —
   the same rule script templates follow. `MAX_WHITEBOARD_SCENE_LENGTH` in
   `src/server/lib/whiteboard.ts` must match the column's `maxLength`.

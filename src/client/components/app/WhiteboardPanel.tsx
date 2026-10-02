@@ -41,6 +41,8 @@ type Props = {
   /** The app's message strip, which hangs under the header here as it does in the editor. */
   banner?: ReactNode;
   guard: MutableRefObject<BoardGuard>;
+  /** The account's preference: whether a board it owns saves itself. */
+  autosave: boolean;
   onNew: () => void;
   /** A save landed. `created` when it made a new record, which is when the URL moves. */
   onSaved: (board: WhiteboardSummary, created: boolean) => void;
@@ -52,7 +54,9 @@ type Props = {
  *
  * A board the caller owns saves itself a moment after it stops changing, the
  * way a drawing app is expected to — there is no version of "I drew for ten
- * minutes and closed the tab" that should lose the drawing. Two kinds of board
+ * minutes and closed the tab" that should lose the drawing. The
+ * `whiteboardAutosave` preference turns that off, and the board then behaves
+ * like a new one: Save to save, and a question before leaving it dirty. Two kinds of board
  * do not, and Save is the button for both: a new one, because an autosave
  * would turn every stray click on a blank canvas into a record; and somebody
  * else's, because the write ACL says it is theirs and saving keeps a copy of
@@ -63,7 +67,7 @@ type Props = {
  * record does *not* remount it: the canvas carries straight on, and only the
  * id underneath it changes.
  */
-export function WhiteboardPanel({ board, dark, leading, banner, guard, onNew, onSaved, onError }: Props) {
+export function WhiteboardPanel({ board, dark, leading, banner, guard, autosave, onNew, onSaved, onError }: Props) {
   const [name, setName] = useState(board?.name ?? UNTITLED_WHITEBOARD);
   const [boardId, setBoardId] = useState<string | null>(board?.id ?? null);
   const [owned, setOwned] = useState(board ? board.canWrite : true);
@@ -79,7 +83,7 @@ export function WhiteboardPanel({ board, dark, leading, banner, guard, onNew, on
   const again = useRef(false);
 
   const dirty = sceneDirty || name.trim() !== (savedName ?? "");
-  const autosaves = Boolean(boardId) && owned;
+  const autosaves = autosave && Boolean(boardId) && owned;
 
   guard.current = { dirty, autosaves };
 
