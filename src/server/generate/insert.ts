@@ -35,6 +35,8 @@ export type InsertReport = {
     inserted: number
     attempted: number
     errors: string[]
+    /** Generated columns the table has no field for, as `key → column`. Not written. */
+    ignoredColumns: string[]
 }
 
 /** Values that have no meaningful `setValue` form. */
@@ -54,7 +56,7 @@ function toCell(value: unknown): string | null {
  * run before the first insert rather than silently dropping a value on each.
  */
 export function insertRows(table: string, rows: Row[], options: InsertOptions = {}): InsertReport {
-    const report: InsertReport = { inserted: 0, attempted: 0, errors: [] }
+    const report: InsertReport = { inserted: 0, attempted: 0, errors: [], ignoredColumns: [] }
     if (!rows.length) return report
 
     const probe = new GlideRecordSecure(table)
@@ -68,15 +70,18 @@ export function insertRows(table: string, rows: Row[], options: InsertOptions = 
         return report
     }
 
-    // Resolve the column mapping once, against the real dictionary.
+    // Resolve the column mapping once, against the real dictionary. The keys
+    // come from every row rather than the first: a field with a `when`
+    // condition is absent from the rows where it did not apply.
     const mapping = options.mapping ?? {}
     const columns: [string, string][] = []
     const unknown: string[] = []
-    for (const key of Object.keys(rows[0] ?? {})) {
+    for (const key of new Set(rows.flatMap((row) => Object.keys(row)))) {
         const column = mapping[key] ?? key
         if (probe.isValidField(column)) columns.push([key, column])
         else unknown.push(`${key} → ${column}`)
     }
+    report.ignoredColumns = unknown
     if (!columns.length) {
         report.errors.push(`None of the generated columns exist on "${table}". Unmapped: ${unknown.join(', ')}`)
         return report

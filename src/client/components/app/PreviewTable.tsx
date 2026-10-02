@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, Database, Download, FileCode2, FileJson, Maximize2, PanelRightClose, Table2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { InsertRecordsPopover } from "./InsertRecordsPopover";
 import { RowDetail } from "./RowDetail";
 import { api, type ExportFormat } from "../../lib/api";
 import { copyToClipboard } from "../../lib/clipboard";
@@ -292,9 +293,9 @@ export function PreviewTable({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Only a stored run has a file to serve — and a script to render.
-              A preview lives in this tab and nowhere else, which is the point
-              of it. */}
+          {/* Only a stored run has a file to serve, a script to render, or
+              rows to write into a table. A preview lives in this tab and
+              nowhere else, which is the point of it. */}
           {dataset && (
             <ScriptButtons
               dataset={dataset}
@@ -304,6 +305,9 @@ export function PreviewTable({
             />
           )}
           {dataset && <ExportButtons dataset={dataset} preferredFormat={preferredFormat} onError={onError} />}
+          {dataset?.state === "complete" && (
+            <InsertRecordsPopover dataset={dataset} columns={headers} onError={onError} />
+          )}
           {collapseButton}
         </div>
       </div>

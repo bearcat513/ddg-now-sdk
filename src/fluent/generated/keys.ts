@@ -153,6 +153,14 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '491f3003fbc7423ab51db7a45cb79ddb'
                     }
+                    'ddg-api-insert-dataset': {
+                        table: 'sys_ws_operation'
+                        id: '70f475e22eb34225834bc191c3ff8bfb'
+                    }
+                    'ddg-api-insert-dataset-dataset-id': {
+                        table: 'sys_ws_query_parameter'
+                        id: '4907a11dfbbd47658242bb2ae8ad9da2'
+                    }
                     'ddg-api-openapi': {
                         table: 'sys_ws_operation'
                         id: '07a2d4f6f8bb4f208e0aa23c7808be41'
@@ -900,6 +908,7 @@ declare global {
                     {
                         table: 'sys_ux_lib_asset'
                         id: '144d8f69ed6e4c17ae88c1ca94c91178'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--19507a10'
                         }
@@ -2284,9 +2293,24 @@ declare global {
                     },
                     {
                         table: 'sys_ux_lib_asset'
+                        id: '6e3fea041d624bb79d7c5f4d60a145d4'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--98023602.js.map'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
                         id: '6f14590b850549828c929ddd795368a2'
                         key: {
                             name: 'x_1040823_ddg_now/vennDiagram-4TSXK5OY'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '703ffca4c7da4daba6ab6b0f3ced4d9d'
+                        key: {
+                            application_file: '6e3fea041d624bb79d7c5f4d60a145d4'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
                         }
                     },
                     {
@@ -2743,6 +2767,13 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ux_lib_asset'
+                        id: '9128e71a66c94c06869c2a03252014c4'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--98023602'
+                        }
+                    },
+                    {
                         table: 'sn_glider_source_artifact_m2m'
                         id: '91e47bc6bb5f45b8a5ab1c397e39488f'
                         deleted: true
@@ -2903,6 +2934,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ws_query_parameter_map'
+                        id: '9b7c73335ec54251b8a47d70b01a30b4'
+                        key: {
+                            web_service_operation: '70f475e22eb34225834bc191c3ff8bfb'
+                            web_service_query_parameter: '4907a11dfbbd47658242bb2ae8ad9da2'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '9c12c7d7d0454c058d417b0bc23acdd9'
                         key: {
@@ -3023,6 +3062,7 @@ declare global {
                     {
                         table: 'sys_ux_lib_asset'
                         id: 'a4006b7ab9744bbcb83eaefa14e85932'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--19507a10.js.map'
                         }
@@ -3523,6 +3563,7 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: 'bd9d1143fa8c4ab0a32c4bc50d800431'
+                        deleted: true
                         key: {
                             application_file: '144d8f69ed6e4c17ae88c1ca94c91178'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
@@ -3659,6 +3700,14 @@ declare global {
                         id: 'c64d908a251d430c98073b5ebf6b14e9'
                         key: {
                             name: 'x_1040823_ddg_now/layout.js.map'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'c6add53e32954225bface99199f0e9cf'
+                        key: {
+                            application_file: '9128e71a66c94c06869c2a03252014c4'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
                         }
                     },
                     {
@@ -4505,6 +4554,7 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: 'ff80ecf1b96043389fc65ec71992dc85'
+                        deleted: true
                         key: {
                             application_file: 'a4006b7ab9744bbcb83eaefa14e85932'
                             source_artifact: '650b7396177945b9893176e707cb3df5'

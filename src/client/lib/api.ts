@@ -216,6 +216,16 @@ export type GenerateResult = {
     state: 'complete' | 'queued'
 }
 
+/** What a write into a real table reports, from either route that does one. */
+export type TableInsertResult = {
+    table: string
+    inserted: number
+    attempted: number
+    errors: string[]
+    /** Generated columns the table has no field for, as `column → field`. Not written. */
+    ignoredColumns: string[]
+}
+
 /**
  * JSON is the stored form for every run, which is why the generate call below
  * says nothing about format: the rows land as JSON on the dataset record and
@@ -302,7 +312,7 @@ export const api = {
         table: string,
         options: { rowCount?: number; mapping?: Record<string, string>; skipBusinessRules?: boolean } = {},
     ) =>
-        request<{ table: string; inserted: number; attempted: number; errors: string[] }>(
+        request<TableInsertResult>(
             `/config/${encodeURIComponent(configId)}/generate`,
             { method: 'POST', ...body({ table, ...options }) },
         ),
@@ -332,6 +342,28 @@ export const api = {
      * window it returns.
      */
     datasetColumns: (id: string) => api.datasetRows(id, 1).then((result) => ({ columns: result.columns })),
+
+    /**
+     * A stored run's rows, created as records in a real table — the rows on
+     * screen, not a fresh draw. Needs `table_writer` and create access there.
+     */
+    insertDataset: (
+        id: string,
+        table: string,
+        options: { mapping?: Record<string, string>; skipBusinessRules?: boolean } = {},
+    ) =>
+        request<TableInsertResult>(`/dataset/${encodeURIComponent(id)}/insert`, {
+            method: 'POST',
+            ...body({ table, ...options }),
+        }),
+
+    /**
+     * The platform list of a table, newest first — where records a dataset was
+     * just written into can be looked at. Not part of this app's API: a link
+     * out of it, kept here because this is the file that knows URLs.
+     */
+    tableListUrl: (table: string) =>
+        `/${encodeURIComponent(table)}_list.do?sysparm_query=${encodeURIComponent('ORDERBYDESCsys_created_on')}`,
 
     /* -------------------------------- export ------------------------------ */
 

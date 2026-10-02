@@ -17,14 +17,26 @@
  *     that as the reason rather than storing a truncated string.
  *   - A target-table run streams into `GlideRecord` inserts through
  *     `generateInto` rather than materialising the array first.
+ *   - A stored dataset can be written into a table afterwards, from its
+ *     `rows_json` — the same rows the preview showed, not a second draw.
  */
 
 import { gs } from '@servicenow/glide'
 import { datasetName } from './lib/datasetName.ts'
-import type { Row } from './lib/rows.ts'
+import { flatten, type Row } from './lib/rows.ts'
 import type { Field, SchemaConfig } from './lib/types.ts'
 import { rowColumns } from './lib/types.ts'
-import { createDataset, finishDataset, getConfig, maxRows, setDatasetState, syncRowLimit, writeDatasetRows } from './db/db.ts'
+import {
+    createDataset,
+    finishDataset,
+    getConfig,
+    getDataset,
+    maxRows,
+    readDatasetRows,
+    setDatasetState,
+    syncRowLimit,
+    writeDatasetRows,
+} from './db/db.ts'
 import { DATASET_JSON_LIMIT } from './db/tables.ts'
 import type { ChoiceSourceOptions } from './generate/choices.ts'
 import { generateInto, generateRows, resolveChoiceScripts } from './generate/generate.ts'
@@ -213,11 +225,64 @@ export function runToTable(
         return { ok: false, error: (error as Error).message }
     }
 
-    // Inserted in batches so the mapping and permission checks in
-    // `insertRows` are paid once per batch rather than once per row, while the
-    // row loop still never holds the whole run.
+    const writer = tableWriter(table, options)
+    generateInto(
+        { ...config, fields: prepared.fields, rowCount: prepared.count },
+        (row) => writer.push(row),
+        maxRows(),
+    )
+    return writer.finish()
+}
+
+/**
+ * Writes a stored run's rows into a real table.
+ *
+ * The rows come off the dataset record's `rows_json` rather than the generator,
+ * so what lands in the table is exactly what the preview table showed and what
+ * an export of the same dataset contains. The dataset is read with the
+ * caller's own ACLs, and the insert is checked against their create access on
+ * the target, exactly as a target-table run is.
+ */
+export function runDatasetToTable(
+    datasetId: string,
+    table: string,
+    options: InsertOptions = {},
+): { ok: true; report: InsertReport } | { ok: false; status: number; error: string } {
+    const dataset = getDataset(datasetId)
+    if (!dataset) return { ok: false, status: 404, error: 'No such dataset, or you may not read it.' }
+    if (dataset.state !== 'complete') {
+        return {
+            ok: false,
+            status: 409,
+            error: `Dataset is ${dataset.state}${dataset.error ? `: ${dataset.error}` : ''}.`,
+        }
+    }
+
+    const stored = readDatasetRows(datasetId)
+    if (!stored) return { ok: false, status: 404, error: 'That dataset has no rows stored on it.' }
+
+    // The stored JSON nests dot paths; the generator, and so `insertRows`,
+    // work in the flat column space a mapping is written against.
+    const writer = tableWriter(table, options)
+    for (const row of JSON.parse(stored) as Record<string, unknown>[]) {
+        if (!writer.push(flatten(row))) break
+    }
+    const outcome = writer.finish()
+    return outcome.ok ? outcome : { ok: false, status: 400, error: outcome.error }
+}
+
+/**
+ * Inserts rows in batches, so the mapping and permission checks in
+ * `insertRows` are paid once per batch rather than once per row, while the
+ * caller's row loop still never has to hold the whole run.
+ *
+ * `push` answers false once the run should stop: a table-level failure (no
+ * such table, no create access) repeats on every batch, so the first one ends
+ * the run rather than logging it five hundred times.
+ */
+function tableWriter(table: string, options: InsertOptions) {
     const BATCH = 200
-    const total: InsertReport = { inserted: 0, attempted: 0, errors: [] }
+    const total: InsertReport = { inserted: 0, attempted: 0, errors: [], ignoredColumns: [] }
     let batch: Row[] = []
     let aborted = false
 
@@ -227,27 +292,23 @@ export function runToTable(
         total.inserted += report.inserted
         total.attempted += report.attempted
         for (const error of report.errors) total.errors.push(error)
+        for (const column of report.ignoredColumns) {
+            if (!total.ignoredColumns.includes(column)) total.ignoredColumns.push(column)
+        }
         batch = []
-        // A table-level failure (no such table, no create access) repeats on
-        // every batch, so the first one ends the run rather than logging it
-        // five hundred times.
         return report.attempted > 0 || report.errors.length === 0
     }
 
-    generateInto(
-        { ...config, fields: prepared.fields, rowCount: prepared.count },
-        (row) => {
+    return {
+        push(row: Row): boolean {
             batch.push(row)
-            if (batch.length >= BATCH && !flush()) {
-                aborted = true
-                return false
-            }
-            return true
+            if (batch.length >= BATCH && !flush()) aborted = true
+            return !aborted
         },
-        maxRows(),
-    )
-    if (!aborted) flush()
-
-    if (!total.inserted && total.errors.length) return { ok: false, error: total.errors[0]! }
-    return { ok: true, report: total }
+        finish(): { ok: true; report: InsertReport } | { ok: false; error: string } {
+            if (!aborted) flush()
+            if (!total.inserted && total.errors.length) return { ok: false, error: total.errors[0]! }
+            return { ok: true, report: total }
+        },
+    }
 }

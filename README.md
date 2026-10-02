@@ -226,6 +226,7 @@ page that replaced it needs two of them. Base path `/api/x_1040823_ddg_now/ddg`.
 | `/config/{configId}/generate` | POST | Run a generation |
 | `/dataset` · `/dataset/{id}` | GET | Dataset metadata and run state |
 | `/dataset/{id}/export` | GET | The rows themselves |
+| `/dataset/{id}/insert` | POST | Those rows, created as records in a real table |
 | `/dataset/{id}/script` | GET | That run rendered into a script template |
 | `/template` · `/template/{id}` | GET · POST · PUT · DELETE | Script templates |
 | `/preferences` | GET · PUT | The caller's own workspace preferences |
@@ -249,6 +250,12 @@ curl ... -d '{"preview": true, "rowCount": 5}'
 
 # straight into a real table (needs table_writer, and create access on the target)
 curl ... -d '{"table": "incident", "rowCount": 50, "mapping": {"short_description": "short_description"}}'
+
+# a stored run's rows, created as records in a real table — the same rows the
+# preview showed, not a fresh draw (needs table_writer, and create access on the target)
+curl -u "$SN_USER:$SN_PASS" -X POST \
+  "$SN_HOST/api/x_1040823_ddg_now/ddg/dataset/<id>/insert" \
+  -H 'Content-Type: application/json' -d '{"table": "incident", "mapping": {"summary": "short_description"}}'
 
 # the rows
 curl -u "$SN_USER:$SN_PASS" "$SN_HOST/api/x_1040823_ddg_now/ddg/dataset/<id>/export"

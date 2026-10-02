@@ -348,6 +348,29 @@ export const OPERATIONS: ApiOperation[] = [
         },
     },
     {
+        method: 'post',
+        path: '/dataset/{datasetId}/insert',
+        tag: 'Datasets',
+        operationId: 'insertDataset',
+        summary: 'Create records in a real table from the stored rows',
+        description: [
+            'Writes the rows the run stored — not a fresh draw — so the records match the preview and any',
+            'export of the same dataset. Nested columns are flattened to dot paths first, which is what',
+            '`mapping` keys are written against.',
+            '',
+            'Needs the `x_1040823_ddg_now.table_writer` role, and your create ACLs on the table decide the',
+            'rest. Columns the table has no field for are skipped and listed in `ignoredColumns`.',
+        ].join('\n'),
+        parameters: [idParam('datasetId', 'dataset')],
+        requestBody: jsonBody('Where the rows go.', ref('DatasetInsertInput')),
+        responses: {
+            '200': jsonResponse('The insert report.', ref('TableInsertResult')),
+            '403': jsonResponse('You do not have the table_writer role.', ref('Error')),
+            '404': responseRef('NotFound'),
+            '409': responseRef('NotReady'),
+        },
+    },
+    {
         method: 'get',
         path: '/dataset/{datasetId}/export',
         tag: 'Datasets',
@@ -913,7 +936,30 @@ function schemas(): Record<string, Json> {
                 inserted: { type: 'integer' },
                 attempted: { type: 'integer' },
                 errors: { ...array({ type: 'string' }), description: 'Why rows were not inserted, one per failure.' },
+                ignoredColumns: {
+                    ...array({ type: 'string' }),
+                    description: 'Generated columns the table has no field for, as `column → field`. Not written.',
+                },
             },
+        },
+        DatasetInsertInput: {
+            type: 'object',
+            required: ['table'],
+            properties: {
+                table: { type: 'string', description: 'The table to create records in.' },
+                mapping: {
+                    type: 'object',
+                    additionalProperties: { type: 'string' },
+                    description: 'Generated column → table column. Columns left out keep their own name.',
+                    example: { summary: 'short_description' },
+                },
+                skipBusinessRules: {
+                    type: 'boolean',
+                    default: false,
+                    description: 'Insert without running that table\'s business rules.',
+                },
+            },
+            example: { table: 'incident', mapping: { summary: 'short_description' } },
         },
 
         Dataset: {

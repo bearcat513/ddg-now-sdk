@@ -1,7 +1,7 @@
 /**
  * The scripted REST handlers.
  *
- * Twenty-seven routes. The Bun server's thirty-six carried auth, sessions, API
+ * Twenty-eight routes. The Bun server's thirty-six carried auth, sessions, API
  * keys, sharing, notes and Telegram, none of which came across. What is left
  * is this application's actual subject — schemas, runs, the rows they produce,
  * the scripts those rows are dropped into — and the whiteboards a team draws
@@ -19,6 +19,7 @@
  *   GET    /dataset/{datasetId}        metadata and run state
  *   GET    /dataset/{datasetId}/rows   a page of generated rows, as JSON
  *   GET    /dataset/{datasetId}/export the rows themselves, as a file
+ *   POST   /dataset/{datasetId}/insert those rows, as records in a real table
  *   DELETE /dataset/{datasetId}        remove a run
  *   GET    /preferences                the caller's own workspace preferences
  *   PUT    /preferences                change some of them
@@ -51,10 +52,12 @@
  * `export function` declarations rather than `const` bindings because that is
  * what the Fluent build can resolve a `script:` reference to.
  *
- * None of them check permissions. That is not an omission: every read and
- * write underneath goes through `GlideRecordSecure`, so the caller's own ACLs
- * decide, exactly as PocketBase's collection rules did for the Bun version.
- * A handler that re-implemented the check here would be a second, weaker copy.
+ * None of them check record permissions. That is not an omission: every read
+ * and write underneath goes through `GlideRecordSecure`, so the caller's own
+ * ACLs decide, exactly as PocketBase's collection rules did for the Bun
+ * version. A handler that re-implemented the check here would be a second,
+ * weaker copy. The one role check is `table_writer`, on the two routes that
+ * write outside this scope — no ACL of this app's could say that.
  */
 
 import { gs } from '@servicenow/glide'
@@ -72,7 +75,7 @@ import {
     summariseFields,
     updateConfig,
 } from '../db/db.ts'
-import { previewInline, previewRows, runToDataset, runToTable } from '../run.ts'
+import { previewInline, previewRows, runDatasetToTable, runToDataset, runToTable } from '../run.ts'
 import { exportFile, serialize, type ExportFormat } from '../export/export.ts'
 import { flatten } from '../lib/rows.ts'
 import { FIELD_TYPE_SET, type Field } from '../lib/types.ts'
@@ -322,6 +325,7 @@ export function generateHandler(request: RestRequest, response: RestResponse): v
         }
 
         if (typeof body.table === 'string' && body.table.trim()) {
+            if (!gs.hasRole(TABLE_WRITER_ROLE)) return fail(response, 403, TABLE_WRITER_MESSAGE)
             const outcome = runToTable(configId, body.table.trim(), {
                 rowCount,
                 mapping: body.mapping as Record<string, string> | undefined,
@@ -333,6 +337,7 @@ export function generateHandler(request: RestRequest, response: RestResponse): v
                 inserted: outcome.report.inserted,
                 attempted: outcome.report.attempted,
                 errors: outcome.report.errors,
+                ignoredColumns: outcome.report.ignoredColumns,
             })
         }
 
@@ -349,6 +354,15 @@ export function generateHandler(request: RestRequest, response: RestResponse): v
         })
     })
 }
+
+/**
+ * Writing into a real table leaves this scope and lands in a system of record,
+ * so it needs `table_writer` on top of create access on the table itself. The
+ * role says the caller may use this app that way; the table's ACLs, checked by
+ * `insertRows`, still decide whether they may write *there*.
+ */
+const TABLE_WRITER_ROLE = 'x_1040823_ddg_now.table_writer'
+const TABLE_WRITER_MESSAGE = `Writing into a table needs the ${TABLE_WRITER_ROLE} role.`
 
 /* ------------------------------ /dataset/{id} ---------------------------- */
 
@@ -429,6 +443,45 @@ export function datasetRowsHandler(request: RestRequest, response: RestResponse)
             total: all.length,
         })
     })
+}
+
+/* --------------------------- /dataset/{id}/insert ------------------------ */
+
+/**
+ * Creates records in a real table from a stored run's rows.
+ *
+ * The counterpart of `/config/{id}/generate` with `table`, for when the rows
+ * have already been looked at: it writes the dataset that is on screen rather
+ * than drawing new ones, so what lands in the table is what the preview showed.
+ * `mapping` and `skipBusinessRules` mean exactly what they mean there.
+ */
+export function insertDatasetHandler(request: RestRequest, response: RestResponse): void {
+    guarded('insert-dataset', response, () => {
+        const datasetId = request.pathParams?.datasetId
+        if (!datasetId) return fail(response, 400, 'No dataset id in the path.')
+
+        const body = readBody(request)
+        const table = typeof body.table === 'string' ? body.table.trim() : ''
+        if (!table) return fail(response, 400, 'Send { "table": "<table name>" }.')
+        if (!gs.hasRole(TABLE_WRITER_ROLE)) return fail(response, 403, TABLE_WRITER_MESSAGE)
+
+        const outcome = runDatasetToTable(datasetId, table, {
+            mapping: readMapping(body.mapping),
+            skipBusinessRules: body.skipBusinessRules === true,
+        })
+        if (!outcome.ok) return fail(response, outcome.status, outcome.error)
+        json(response, 200, { table, ...outcome.report })
+    })
+}
+
+/** A mapping as the body sent it, keeping only string → non-empty string pairs. */
+function readMapping(value: unknown): Record<string, string> | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    const mapping: Record<string, string> = {}
+    for (const [key, column] of Object.entries(value as Record<string, unknown>)) {
+        if (typeof column === 'string' && column.trim()) mapping[key] = column.trim()
+    }
+    return mapping
 }
 
 /* --------------------------- /dataset/{id}/export ------------------------ */

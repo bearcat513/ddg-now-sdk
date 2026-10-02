@@ -13,6 +13,7 @@ import {
     exportHandler,
     generateHandler,
     inferHandler,
+    insertDatasetHandler,
     openApiHandler,
     preferencesHandler,
     previewHandler,
@@ -324,6 +325,24 @@ RestApi({
             script: exportHandler,
             shortDescription:
                 'The rows themselves, as a file. JSON by default, straight from the stored column; ?format=csv or ?format=sql serialises from it.',
+        },
+        {
+            $id: Now.ID['ddg-api-insert-dataset'],
+            name: 'insert-dataset',
+            method: 'POST',
+            path: '/dataset/{datasetId}/insert',
+            script: insertDatasetHandler,
+            shortDescription:
+                'Create records in a real table from a stored run\'s rows. Needs table_writer and create access on the table; "mapping" renames columns on the way in.',
+            requestExample: '{ "table": "incident", "mapping": { "summary": "short_description" } }',
+            parameters: [
+                {
+                    $id: Now.ID['ddg-api-insert-dataset-dataset-id'],
+                    name: 'datasetId',
+                    required: true,
+                    shortDescription: 'sys_id of the dataset whose rows become records.',
+                },
+            ],
         },
         {
             $id: Now.ID['ddg-api-openapi'],

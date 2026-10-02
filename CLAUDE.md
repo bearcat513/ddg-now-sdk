@@ -43,7 +43,7 @@ previous artifacts in place, so deploying without rebuilding pushes stale output
     product. Copied from `legacy/components/ui/`, so a change here is a change to a *copy*, not to
     a dependency.
   - `components/app/` — this product: `Sidebar`, `FieldRow`, `TypeSelect`, `PreviewTable`,
-    `RowDetail`, `ImportPanel`, `MetadataEditor`, `ScriptTemplatePanel`, `CodeEditor`,
+    `RowDetail`, `InsertRecordsPopover`, `ImportPanel`, `MetadataEditor`, `ScriptTemplatePanel`, `CodeEditor`,
     `SettingsPanel`, `SplitHandle`, `WhiteboardPanel`, `WhiteboardCanvas`, `WhiteboardSharePopover`,
     `SharedWhiteboard` (the public page's whole UI, mounted by `share.tsx`).
   - `components/docs/` — the API reference view (`?view=docs`): `DocsPanel`, `OperationCard`,
