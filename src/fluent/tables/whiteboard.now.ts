@@ -1,5 +1,5 @@
 import '@servicenow/sdk/global'
-import { StringColumn, Table } from '@servicenow/sdk/core'
+import { BooleanColumn, StringColumn, Table } from '@servicenow/sdk/core'
 
 /**
  * A whiteboard: one Excalidraw scene, stored whole.
@@ -18,6 +18,13 @@ import { StringColumn, Table } from '@servicenow/sdk/core'
  * scene into `sys_audit` every few seconds.
  *
  * `allowWebServiceAccess` is on for the same reason the other tables have it.
+ *
+ * The `share_*` columns are the board's public link. `share_token` is the
+ * secret in the URL; `share_password` holds a salted hash, never the password,
+ * and a field ACL keeps even that unreadable. `share_protected` says whether
+ * there is one, because the owner's page needs to know that and must not be
+ * able to read the hash to find out. Only the `DdgPublicWhiteboard` Script
+ * Include reads these without the caller's ACLs, and only by exact token.
  */
 export const x_1040823_ddg_now_whiteboard = Table({
     name: 'x_1040823_ddg_now_whiteboard',
@@ -31,6 +38,13 @@ export const x_1040823_ddg_now_whiteboard = Table({
             maxLength: 16000000,
             attributes: { json_view: true },
         }),
+        share_enabled: BooleanColumn({ label: 'Shared publicly', default: false }),
+        share_token: StringColumn({ label: 'Share token', maxLength: 64 }),
+        share_password: StringColumn({ label: 'Share password hash', maxLength: 255 }),
+        share_protected: BooleanColumn({ label: 'Share password set', default: false }),
     },
-    index: [{ name: 'ddg_whiteboard_name', unique: false, element: 'name' }],
+    index: [
+        { name: 'ddg_whiteboard_name', unique: false, element: 'name' },
+        { name: 'ddg_whiteboard_share_token', unique: false, element: 'share_token' },
+    ],
 })

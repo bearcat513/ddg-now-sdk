@@ -10,25 +10,47 @@
  * elevates.
  */
 
-import { GlideRecordSecure } from '@servicenow/glide'
+import { GlideDigest, GlideRecordSecure, GlideSecureRandomUtil } from '@servicenow/glide'
 import {
     EMPTY_WHITEBOARD_SCENE,
+    SHARE_TOKEN_LENGTH,
+    hashSharePassword,
+    isShareToken,
+    resolvePublicWhiteboard,
+    type PublicWhiteboardResult,
+    type SharedWhiteboardRecord,
     type Whiteboard,
     type WhiteboardInput,
+    type WhiteboardShare,
+    type WhiteboardShareInput,
     type WhiteboardSummary,
 } from '../lib/whiteboard.ts'
 import { WHITEBOARD_TABLE } from './tables.ts'
 
+export type { SharedWhiteboardRecord } from '../lib/whiteboard.ts'
+
+function readShare(gr: GlideRecordSecure<typeof WHITEBOARD_TABLE>): WhiteboardShare {
+    return {
+        enabled: gr.getValue('share_enabled') === '1',
+        token: gr.getValue('share_token') ?? '',
+        passwordProtected: gr.getValue('share_protected') === '1',
+    }
+}
+
 function readSummary(gr: GlideRecordSecure<typeof WHITEBOARD_TABLE>): WhiteboardSummary {
+    const canWrite = gr.canWrite()
     return {
         id: gr.getUniqueValue(),
         name: gr.getValue('name') ?? '',
         ownerId: gr.getValue('sys_created_by') ?? '',
         // Asked of the record rather than worked out from the owner name: the
         // write ACL is the rule, and this is it being evaluated.
-        canWrite: gr.canWrite(),
+        canWrite,
         createdAt: gr.getValue('sys_created_on') ?? '',
         updatedAt: gr.getValue('sys_updated_on') ?? '',
+        // Only whoever may change the board is told about its link; the
+        // token's field ACL would hide it from anyone else anyway.
+        share: canWrite ? readShare(gr) : null,
     }
 }
 
@@ -90,4 +112,68 @@ export function deleteWhiteboard(id: string): boolean {
     if (!gr.get(id)) return false
     if (!gr.canDelete()) return false
     return Boolean(gr.deleteRecord())
+}
+
+/* ------------------------------ public links ----------------------------- */
+
+const sha256 = (text: string) => new GlideDigest().getSHA256Hex(text)
+
+const TOKEN_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+
+/**
+ * A random string over an alphabet this file chose, from the platform's
+ * secure generator. Built here rather than taken from `getSecureRandomString`
+ * because `isShareToken` has to know exactly which characters a token holds.
+ */
+function secureRandomString(length: number): string {
+    let out = ''
+    for (let index = 0; index < length; index++) {
+        out += TOKEN_ALPHABET.charAt(GlideSecureRandomUtil.getSecureRandomIntBound(TOKEN_ALPHABET.length))
+    }
+    return out
+}
+
+/**
+ * Turns a board's public link on or off, sets or clears its password, or
+ * replaces the link. The owner's own write, through `GlideRecordSecure` like
+ * every other save — nothing here is elevated.
+ *
+ * A token is minted the first time a board is shared and then kept, so
+ * switching a link off and on again brings the same link back. `newLink` is
+ * the way to make old copies stop working.
+ */
+export function setWhiteboardShare(id: string, input: WhiteboardShareInput): WhiteboardShare | null {
+    const gr = new GlideRecordSecure(WHITEBOARD_TABLE)
+    if (!gr.get(id) || !gr.canWrite()) return null
+
+    gr.setValue('share_enabled', input.enabled)
+    if (input.newLink || !isShareToken(gr.getValue('share_token'))) {
+        gr.setValue('share_token', secureRandomString(SHARE_TOKEN_LENGTH))
+    }
+    if (typeof input.password === 'string') {
+        const salt = secureRandomString(16)
+        gr.setValue('share_password', hashSharePassword(input.password, salt, sha256))
+        gr.setValue('share_protected', true)
+    } else if (input.password === null) {
+        gr.setValue('share_password', '')
+        gr.setValue('share_protected', false)
+    }
+    if (!gr.update()) return null
+
+    const saved = new GlideRecordSecure(WHITEBOARD_TABLE)
+    return saved.get(id) ? readShare(saved) : null
+}
+
+/**
+ * What an anonymous caller holding `token` may see. The decision is
+ * `resolvePublicWhiteboard`'s; this supplies the platform's SHA-256, and
+ * `lookup` is the `DdgPublicWhiteboard` Script Include's privileged read,
+ * handed in because a module cannot reach a Script Include by name.
+ */
+export function openPublicWhiteboard(
+    token: unknown,
+    password: unknown,
+    lookup: (token: string) => SharedWhiteboardRecord | null,
+): PublicWhiteboardResult {
+    return resolvePublicWhiteboard(token, password, lookup, sha256)
 }

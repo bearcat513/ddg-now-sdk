@@ -293,6 +293,38 @@ Acl({
     condition: OWN_RECORD,
 })
 
+/**
+ * A board's public link is its owner's to hand out. Colleagues can already
+ * open the board, so the token is no use to them — and if they could read it,
+ * a board shared once would be shareable by anyone on the team.
+ */
+Acl({
+    $id: Now.ID['whiteboard-share-token-read'],
+    type: 'record',
+    operation: 'read',
+    table: 'x_1040823_ddg_now_whiteboard',
+    field: 'share_token',
+    roles: [ddgUser],
+    condition: OWN_RECORD,
+    description: 'Only the owner of a whiteboard can read its public link.',
+})
+
+/**
+ * Nobody reads the share password hash through an ACL — not the owner, not an
+ * admin. The `DdgPublicWhiteboard` Script Include is the one reader, and it
+ * only compares. `share_protected` answers "is there a password" instead.
+ */
+Acl({
+    $id: Now.ID['whiteboard-share-password-read'],
+    type: 'record',
+    operation: 'read',
+    table: 'x_1040823_ddg_now_whiteboard',
+    field: 'share_password',
+    script: 'answer = false',
+    adminOverrides: false,
+    description: 'The share password hash is never readable.',
+})
+
 /* ------------------------------ preferences ------------------------------ */
 
 /**
@@ -370,4 +402,21 @@ Acl({
     name: 'x_1040823_ddg_now_studio.do',
     roles: [ddgUser],
     description: 'Only holders of the DDG role can open the generator page.',
+})
+
+/**
+ * The public whiteboard page, for anyone — the `public` role is the one an
+ * unauthenticated session has. `sys_public` only lets the request past login;
+ * without this, the platform's `*` UI page ACL still asks for `snc_internal`.
+ * Named the way the platform's own public pages are (`login_cpw`): the page
+ * name, without `.do`. The page holds nothing — every board it shows comes
+ * from `POST /public/whiteboard/{token}`, which decides for itself.
+ */
+Acl({
+    $id: Now.ID['whiteboard-share-page-read'],
+    type: 'ui_page',
+    operation: 'read',
+    name: 'x_1040823_ddg_now_whiteboard_share',
+    roles: ['public'],
+    description: 'Anyone, signed in or not, can load the public whiteboard page.',
 })

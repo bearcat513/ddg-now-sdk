@@ -165,6 +165,10 @@ declare global {
                         table: 'sys_ws_operation'
                         id: '49f7590892df4830af539b647654a31f'
                     }
+                    'ddg-api-public-whiteboard': {
+                        table: 'sys_ws_operation'
+                        id: '3ddc061ae3e74234a351a4fa41289e3d'
+                    }
                     'ddg-api-template': {
                         table: 'sys_ws_operation'
                         id: '13b3a285c0834a1186c3cda9c7fe2953'
@@ -188,6 +192,10 @@ declare global {
                     'ddg-api-update-whiteboard': {
                         table: 'sys_ws_operation'
                         id: 'eac039dd7cfc4c9195fc108ff1dcd0af'
+                    }
+                    'ddg-api-update-whiteboard-share': {
+                        table: 'sys_ws_operation'
+                        id: 'bf6c52cce1d841588adb7a8855282974'
                     }
                     'ddg-api-whiteboard': {
                         table: 'sys_ws_operation'
@@ -249,6 +257,10 @@ declare global {
                         table: 'sys_script'
                         id: '6726194b283b49c2aaecc93f908942a7'
                     }
+                    'ddg-whiteboard-share-public': {
+                        table: 'sys_public'
+                        id: '194b774d15584b04967ae6d56e80a250'
+                    }
                     DdgAjax: {
                         table: 'sys_script_include'
                         id: 'e20d611018c24b1b9e5b67d27f12bb06'
@@ -256,6 +268,10 @@ declare global {
                     DdgGenerator: {
                         table: 'sys_script_include'
                         id: '2143047803594212897faa8fa1fb9ab0'
+                    }
+                    DdgPublicWhiteboard: {
+                        table: 'sys_script_include'
+                        id: '5a5e49313ae44c3c87922d7bb0f84a43'
                     }
                     'demo-config-tickets': {
                         table: 'x_1040823_ddg_now_config'
@@ -502,6 +518,10 @@ declare global {
                         table: 'sys_module'
                         id: '9bfca1c991394afca9c487d6b5d5128e'
                     }
+                    'src_server_rest_public-whiteboard_ts': {
+                        table: 'sys_module'
+                        id: '0b27364afea0487bae316807a751f978'
+                    }
                     src_server_run_ts: {
                         table: 'sys_module'
                         id: '32cd997939d847d9a978b06a89968052'
@@ -542,6 +562,18 @@ declare global {
                         table: 'sys_security_acl'
                         id: 'e165d5b379f1485eaa13169e7f6537c9'
                     }
+                    'whiteboard-share-page-read': {
+                        table: 'sys_security_acl'
+                        id: '889c4356ea454528be18a07ba04b7db8'
+                    }
+                    'whiteboard-share-password-read': {
+                        table: 'sys_security_acl'
+                        id: '8b4dde0e9c7048f0827ae0ff5cfd3a16'
+                    }
+                    'whiteboard-share-token-read': {
+                        table: 'sys_security_acl'
+                        id: 'cd4139d7c11149c8903d3c98ed665f0c'
+                    }
                     'whiteboard-write': {
                         table: 'sys_security_acl'
                         id: '8490cf956e13429ba1dbb722f05e3190'
@@ -571,6 +603,14 @@ declare global {
                         id: '00c8fcc7b3a444e5b90f4896946229f2'
                         key: {
                             name: 'x_1040823_ddg_now/uk-UA-QMV73CPH'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '00ef726754d04a86bc8bf217e4970a91'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_protected'
                         }
                     },
                     {
@@ -646,6 +686,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '061fc797271d4de5becded05797505e9'
+                        key: {
+                            application_file: 'c19b7640b86f4b48a0c0ee6890eebe34'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '06491c50b65b43f5b5462429e71a926c'
                         key: {
@@ -709,6 +757,14 @@ declare global {
                         key: {
                             application_file: '2e58de66e3984785b75ccb5df457396f'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '0a77271510e24d8ea077e3633f36e7e4'
+                        key: {
+                            application_file: 'cb2c7808127044d2924499abd7a999b3'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
                         }
                     },
                     {
@@ -785,6 +841,7 @@ declare global {
                     {
                         table: 'sys_ux_lib_asset'
                         id: '0cfe1f268d0b4991badebe2329430703'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--c9bffedf'
                         }
@@ -838,6 +895,13 @@ declare global {
                         id: '1423309c99fb45df890e30c003399e39'
                         key: {
                             name: 'x_1040823_ddg_now/km-KH-HSX4SM5Z'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: '144d8f69ed6e4c17ae88c1ca94c91178'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--19507a10'
                         }
                     },
                     {
@@ -1174,6 +1238,21 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '2d3ec942f7b34eab995b5cea90760661'
+                        key: {
+                            application_file: 'b18f590f71a445afb4c1ef6bbfdcb458'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: '2d7f5ab1bccb41ccb6b537320640cbea'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-@excalidraw-excalidraw--b78dee07'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '2e58de66e3984785b75ccb5df457396f'
                         deleted: true
@@ -1333,10 +1412,25 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '37874ac956ac4e768fc3074f27abb8d1'
+                        key: {
+                            application_file: '99f7bae4bf6e4fcf984880af937d73ac'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '379433c481dd4c45a6aa640c5e27f4f6'
                         key: {
                             name: 'x_1040823_ddg_now/pl-PL-T2D74RX3'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_page'
+                        id: '37abd2a820d941fea41d8d293c7ee340'
+                        key: {
+                            endpoint: 'x_1040823_ddg_now_whiteboard_share.do'
                         }
                     },
                     {
@@ -1455,6 +1549,14 @@ declare global {
                         id: '40b5cdd0bbcc418dba193d4075f49478'
                         key: {
                             name: 'x_1040823_ddg_now/chunk-SVP7TREG'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '413f340491a24f5db1d65450a88d3e4a'
+                        key: {
+                            application_file: '749f698351fa41f6a00e5e79f5d39ec3'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
                         }
                     },
                     {
@@ -1577,6 +1679,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '47d22e9c4f15499985cb01216f6d6b58'
+                        key: {
+                            application_file: '37abd2a820d941fea41d8d293c7ee340'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '4818c63ad77244c7a27cbda6ab3f7a7c'
                         key: {
@@ -1588,6 +1698,14 @@ declare global {
                         id: '49885e8212df41d2a793f81ccbce8086'
                         key: {
                             name: 'x_1040823_ddg_now/fa-IR-HGAKTJCU.js.map'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '4a697352724b4debbf624e0754dbe221'
+                        key: {
+                            application_file: 'e7edc2d95d9f450492225de5b069fb79'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
                         }
                     },
                     {
@@ -1675,6 +1793,22 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '4f2fbdf03261415fb4b8a066fb3cc76a'
+                        key: {
+                            application_file: '856799e3c54f47979a0d264f6a66344b'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '4f43690270c14a76b96b02ea3b51cf24'
+                        key: {
+                            application_file: '374f561ede0741fb944e8342cb3780d9'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '4f53fbb28aaa4c4fae35eee0008460ee'
                         key: {
@@ -1726,6 +1860,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '51af80ab311e4180a92762dd3b780dc2'
+                        key: {
+                            application_file: '438143fade414d88b8215388ce1a66d3'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '51dc0375cc3d41148c7c8035c2d881bd'
                         key: {
@@ -1763,6 +1905,14 @@ declare global {
                         key: {
                             name: 'x_1040823_ddg_now_mapping'
                             element: 'from_field'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '55cf0a5b1e6241b59315859ea55f4f96'
+                        key: {
+                            application_file: '793b4079486d49f89cb2fd87315c31d8'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
                         }
                     },
                     {
@@ -1915,6 +2065,22 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact'
+                        id: '5c7a216b0266427d8a3437c45a5808c6'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard_share.do - BYOUI Files'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '5ccb92da0a484e5c87615024f7d53bd9'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_password'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '5cd511f5512749b38a081ac1598450cc'
                         key: {
@@ -1995,6 +2161,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: '615545a8435a409f9cd29e36524f5da6'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_protected'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '628c96a78750436ba4f8199a984d93dc'
                         key: {
@@ -2009,10 +2184,26 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: '64bae6d941b34904af68ebd6af10ce26'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_token'
+                        }
+                    },
+                    {
                         table: 'sn_glider_source_artifact'
                         id: '650b7396177945b9893176e707cb3df5'
                         key: {
                             name: 'x_1040823_ddg_now_studio.do - BYOUI Files'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '65992a72c6b441da97e11963171c9338'
+                        key: {
+                            application_file: '2929c9566ccd44f2848cccd5ec744bef'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
                         }
                     },
                     {
@@ -2157,6 +2348,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '74af2ee92fda4a5c94dc8bc40a0f75ae'
+                        key: {
+                            application_file: 'f0c878d81e9b4031ab91aba8a45de101'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '74b8b4bbc5c641ccadbb76c037f1e8d0'
                         key: {
@@ -2177,6 +2376,14 @@ declare global {
                             name: 'x_1040823_ddg_now_whiteboard'
                             element: 'name'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: '76878b5ed3ee417393b0e21aa70d49d9'
+                        key: {
+                            application_file: '2d7f5ab1bccb41ccb6b537320640cbea'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
                         }
                     },
                     {
@@ -2267,6 +2474,19 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_security_acl_role'
+                        id: '7ed37d00ba5645569109925e16779205'
+                        key: {
+                            sys_security_acl: '889c4356ea454528be18a07ba04b7db8'
+                            sys_user_role: {
+                                id: '87d696c00d3c4ece942993a96f9bcfff'
+                                key: {
+                                    name: 'public'
+                                }
+                            }
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: '805fe69f04f7411ba065fdcbdcc565f6'
                         key: {
@@ -2301,6 +2521,13 @@ declare global {
                         id: '837fce76444b4b32b94d32a3fdf55d54'
                         key: {
                             name: 'x_1040823_ddg_now/nb-NO-T6EIAALU'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: '84054f3de553491aa19ae98f03751a45'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--3ec602ea.js.map'
                         }
                     },
                     {
@@ -2518,6 +2745,7 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: '91e47bc6bb5f45b8a5ab1c397e39488f'
+                        deleted: true
                         key: {
                             application_file: '0cfe1f268d0b4991badebe2329430703'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
@@ -2644,6 +2872,13 @@ declare global {
                         key: {
                             application_file: 'bfaa799b1b6444878b2734c57d44d9c5'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: '99f7bae4bf6e4fcf984880af937d73ac'
+                        key: {
+                            name: 'x_1040823_ddg_now/share'
                         }
                     },
                     {
@@ -2786,6 +3021,13 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ux_lib_asset'
+                        id: 'a4006b7ab9744bbcb83eaefa14e85932'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--19507a10.js.map'
+                        }
+                    },
+                    {
                         table: 'sys_index'
                         id: 'a4305cf60a0f45069012150e774f1dcb'
                         key: {
@@ -2805,6 +3047,19 @@ declare global {
                         id: 'a5c4f2b450e946bc9df84311611545a9'
                         key: {
                             name: 'x_1040823_ddg_now/cose-bilkent-JH36ORCC'
+                        }
+                    },
+                    {
+                        table: 'sys_security_acl_role'
+                        id: 'a5dccda51eb44b7583cb5b89b49a374c'
+                        key: {
+                            sys_security_acl: 'cd4139d7c11149c8903d3c98ed665f0c'
+                            sys_user_role: {
+                                id: '55dbf8e21b344897ba7d6c4ae551342e'
+                                key: {
+                                    name: 'x_1040823_ddg_now.user'
+                                }
+                            }
                         }
                     },
                     {
@@ -2834,6 +3089,14 @@ declare global {
                                     name: 'x_1040823_ddg_now.user'
                                 }
                             }
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'a6fc163c490847b78aae49c55cf7e997'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_enabled'
                         }
                     },
                     {
@@ -2992,6 +3255,13 @@ declare global {
                     },
                     {
                         table: 'sys_ux_lib_asset'
+                        id: 'b18f590f71a445afb4c1ef6bbfdcb458'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-@excalidraw-excalidraw--b78dee07.js.map'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
                         id: 'b1900c30e4ba4814ac9b518abbcc912a'
                         key: {
                             name: 'x_1040823_ddg_now/ca-ES-6MX7JW3Y'
@@ -3054,6 +3324,14 @@ declare global {
                         id: 'b66e5abc8d7543da84cb8ad6cf4e115f'
                         key: {
                             name: 'x_1040823_ddg_now_template'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'b6833f922e254d5b96aec32b14def1e1'
+                        key: {
+                            application_file: 'd8cc39d15a8a4c93b45bcabce8080ad7'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
                         }
                     },
                     {
@@ -3199,6 +3477,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'baa66146274d42eb8b8f65d5b49fb41e'
+                        key: {
+                            application_file: 'e0cf273b160f4bcbb34a8cabbabfb683'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: 'bb074cf36a664beda8ea6e9598b9c95f'
                         key: {
@@ -3232,6 +3518,14 @@ declare global {
                         id: 'bd1240c2ab2c40f1ad5acf6fc61573cf'
                         key: {
                             name: 'x_1040823_ddg_now/es-ES-U4NZUMDT'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'bd9d1143fa8c4ab0a32c4bc50d800431'
+                        key: {
+                            application_file: '144d8f69ed6e4c17ae88c1ca94c91178'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
                         }
                     },
                     {
@@ -3342,6 +3636,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: 'c5564c688107440f8592a3e56f27437c'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_password'
+                        }
+                    },
+                    {
                         table: 'sys_choice'
                         id: 'c607f093dae742a2849c599d51b83e15'
                         key: {
@@ -3386,6 +3688,13 @@ declare global {
                         id: 'cacad19fbb654938939b3097c40d414e'
                         key: {
                             name: 'x_1040823_ddg_now/file-save-3189631c'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: 'cb2c7808127044d2924499abd7a999b3'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-mermaid--4a908658'
                         }
                     },
                     {
@@ -3519,6 +3828,7 @@ declare global {
                     {
                         table: 'sn_glider_source_artifact_m2m'
                         id: 'd52e1763609a4d26b75edc0f9c54d1d3'
+                        deleted: true
                         key: {
                             application_file: 'fa17939fda824078aa6ffb2fbf51238b'
                             source_artifact: '650b7396177945b9893176e707cb3df5'
@@ -3633,6 +3943,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'de482b5eb5cb4be791ac749627ec2e1a'
+                        key: {
+                            application_file: '84054f3de553491aa19ae98f03751a45'
+                            source_artifact: '5c7a216b0266427d8a3437c45a5808c6'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: 'ded07f8759804e28ad537d230d90f617'
                         key: {
@@ -3662,6 +3980,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'dfafc354ed084c0d8c4a163c86eb8703'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_token'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_ux_lib_asset'
                         id: 'dfb18f2794f9426b9a0c44b62251b6da'
                         key: {
@@ -3677,6 +4004,22 @@ declare global {
                             value: 'dark'
                             language: 'en'
                             dependent_value: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: 'e0cf273b160f4bcbb34a8cabbabfb683'
+                        key: {
+                            name: 'x_1040823_ddg_now/share.js.map'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: 'e26b177986d84e8883929ae985d39688'
+                        key: {
+                            name: 'x_1040823_ddg_now_whiteboard'
+                            element: 'share_enabled'
+                            language: 'en'
                         }
                     },
                     {
@@ -3734,6 +4077,13 @@ declare global {
                         key: {
                             web_service_operation: 'a91945975485421dad7667f644db7cae'
                             web_service_query_parameter: '5a83d2b97f6e4f32aa3cf76b54df7eb8'
+                        }
+                    },
+                    {
+                        table: 'sys_ux_lib_asset'
+                        id: 'e7edc2d95d9f450492225de5b069fb79'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-lucide-react--3ec602ea'
                         }
                     },
                     {
@@ -3915,6 +4265,13 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ux_lib_asset'
+                        id: 'f0c878d81e9b4031ab91aba8a45de101'
+                        key: {
+                            name: 'x_1040823_ddg_now/vendor-mermaid--4a908658.js.map'
+                        }
+                    },
+                    {
                         table: 'sys_dictionary'
                         id: 'f0cea195ebb347688c79d642451780bc'
                         key: {
@@ -4042,6 +4399,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_index'
+                        id: 'f862044c91b54b0b9214ed111168ba9c'
+                        key: {
+                            logical_table_name: 'x_1040823_ddg_now_whiteboard'
+                            col_name_string: 'share_token'
+                        }
+                    },
+                    {
                         table: 'sys_db_object'
                         id: 'f8cd9a7d38ad439db9204a85638b8a7b'
                         key: {
@@ -4058,6 +4423,7 @@ declare global {
                     {
                         table: 'sys_ux_lib_asset'
                         id: 'fa17939fda824078aa6ffb2fbf51238b'
+                        deleted: true
                         key: {
                             name: 'x_1040823_ddg_now/vendor-lucide-react--c9bffedf.js.map'
                         }
@@ -4134,6 +4500,14 @@ declare global {
                         key: {
                             name: 'x_1040823_ddg_now_user_pref'
                             element: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sn_glider_source_artifact_m2m'
+                        id: 'ff80ecf1b96043389fc65ec71992dc85'
+                        key: {
+                            application_file: 'a4006b7ab9744bbcb83eaefa14e85932'
+                            source_artifact: '650b7396177945b9893176e707cb3df5'
                         }
                     },
                     {

@@ -640,6 +640,7 @@ export function App() {
         canWrite: saved.canWrite,
         createdAt: saved.createdAt,
         updatedAt: saved.updatedAt,
+        share: saved.share,
       };
       setWhiteboards(current => [summary, ...current.filter(entry => entry.id !== saved.id)]);
       if (!created) return;

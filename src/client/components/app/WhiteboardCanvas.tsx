@@ -32,8 +32,10 @@ type Props = {
   scene: string;
   dark: boolean;
   name: string;
-  onReady: (handle: CanvasHandle) => void;
-  onDirtyChange: (dirty: boolean) => void;
+  /** View mode: pan, zoom and export, but no drawing. The public page's. */
+  readOnly?: boolean;
+  onReady?: (handle: CanvasHandle) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 /**
@@ -65,7 +67,7 @@ function parseScene(scene: string) {
   }
 }
 
-export default function WhiteboardCanvas({ scene, dark, name, onReady, onDirtyChange }: Props) {
+export default function WhiteboardCanvas({ scene, dark, name, readOnly = false, onReady, onDirtyChange }: Props) {
   /** The fingerprint of what is stored; null until the canvas has loaded. */
   const baseline = useRef<string | null>(null);
   const current = useRef<string | null>(null);
@@ -79,7 +81,7 @@ export default function WhiteboardCanvas({ scene, dark, name, onReady, onDirtyCh
     const next = baseline.current !== null && current.current !== baseline.current;
     if (next === dirty.current) return;
     dirty.current = next;
-    onDirtyChange(next);
+    onDirtyChange?.(next);
   }, [onDirtyChange]);
 
   const onChange = useCallback<OnChange>(
@@ -95,7 +97,7 @@ export default function WhiteboardCanvas({ scene, dark, name, onReady, onDirtyCh
 
   const excalidrawAPI = useCallback(
     (instance: ExcalidrawImperativeAPI) => {
-      onReady({
+      onReady?.({
         serialize: () => {
           const elements = instance.getSceneElements();
           const appState = instance.getAppState();
@@ -123,6 +125,7 @@ export default function WhiteboardCanvas({ scene, dark, name, onReady, onDirtyCh
       onChange={onChange}
       theme={dark ? "dark" : "light"}
       name={name}
+      viewModeEnabled={readOnly}
       UIOptions={{
         canvasActions: {
           // Saving is the page's — to the record, not to a file on disk — and

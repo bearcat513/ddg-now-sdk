@@ -4,8 +4,14 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
-import { EMPTY_WHITEBOARD_SCENE, type Whiteboard, type WhiteboardSummary } from "../../../server/lib/whiteboard";
+import {
+  EMPTY_WHITEBOARD_SCENE,
+  type Whiteboard,
+  type WhiteboardShare,
+  type WhiteboardSummary,
+} from "../../../server/lib/whiteboard";
 import type { CanvasHandle } from "./WhiteboardCanvas";
+import { WhiteboardSharePopover } from "./WhiteboardSharePopover";
 
 /**
  * Its own chunk. Excalidraw is several times the size of the rest of the page
@@ -64,6 +70,8 @@ export function WhiteboardPanel({ board, dark, leading, banner, guard, onNew, on
   const [savedName, setSavedName] = useState(board?.name ?? null);
   const [sceneDirty, setSceneDirty] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
+  /** The public link, as the server last described it; null when not ours to share. */
+  const [share, setShare] = useState<WhiteboardShare | null>(board?.share ?? null);
 
   const canvas = useRef<CanvasHandle | null>(null);
   const saving = useRef(false);
@@ -102,6 +110,9 @@ export function WhiteboardPanel({ board, dark, leading, banner, guard, onNew, on
         const created = await api.createWhiteboard(input);
         setBoardId(created.id);
         setOwned(true);
+        // A new record — including a copy of someone else's shared board —
+        // starts unshared.
+        setShare(created.share);
         onSaved(created, true);
       }
       handle.markSaved(fingerprint);
@@ -220,6 +231,13 @@ export function WhiteboardPanel({ board, dark, leading, banner, guard, onNew, on
         </p>
 
         <div className="flex items-center gap-2">
+          <WhiteboardSharePopover
+            boardId={boardId}
+            share={share}
+            owned={owned}
+            onChange={setShare}
+            onError={onError}
+          />
           <Button variant="outline" onClick={onNew}>
             <Plus />
             New board

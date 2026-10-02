@@ -24,6 +24,7 @@ import {
     createWhiteboardHandler,
     updateWhiteboardHandler,
     deleteWhiteboardHandler,
+    updateWhiteboardShareHandler,
 } from '../../server/rest/handlers'
 
 /**
@@ -268,6 +269,35 @@ RestApi({
             path: '/whiteboard/{whiteboardId}',
             script: deleteWhiteboardHandler,
             shortDescription: 'Delete a whiteboard.',
+        },
+        {
+            $id: Now.ID['ddg-api-update-whiteboard-share'],
+            name: 'update-whiteboard-share',
+            method: 'PUT',
+            path: '/whiteboard/{whiteboardId}/share',
+            script: updateWhiteboardShareHandler,
+            shortDescription:
+                'Turn a whiteboard\'s public link on or off. "password" sets one, null removes it; "newLink": true replaces the link.',
+            requestExample: '{ "enabled": true, "password": "correct horse" }',
+        },
+        {
+            // The one route that needs no session. The handler is reached
+            // through the `DdgPublicWhiteboard` Script Include, which holds the
+            // feature's only read without the caller's ACLs — a module cannot
+            // name a Script Include, so this script is a string.
+            $id: Now.ID['ddg-api-public-whiteboard'],
+            name: 'public-whiteboard',
+            method: 'POST',
+            path: '/public/whiteboard/{token}',
+            script: `(function process(request, response) {
+    new DdgPublicWhiteboard().serve(request, response)
+})(request, response)`,
+            authentication: false,
+            authorization: false,
+            internalRole: false,
+            shortDescription:
+                'A publicly shared whiteboard, for anyone holding its link. Send { "password" } in the body when the board has one.',
+            requestExample: '{ "password": "correct horse" }',
         },
         {
             $id: Now.ID['ddg-api-dataset-script'],

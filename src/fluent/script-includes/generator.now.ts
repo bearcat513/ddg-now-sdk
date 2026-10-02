@@ -31,3 +31,17 @@ export const DdgAjax = ScriptInclude({
     clientCallable: true,
     accessibleFrom: 'public',
 })
+
+/**
+ * The anonymous read behind a whiteboard's public link. Private to this scope:
+ * its only caller is the `/public/whiteboard/{token}` route, and see
+ * `src/script-includes/ddg-public-whiteboard.js` for why it is the one place
+ * that reads without the caller's ACLs.
+ */
+export const DdgPublicWhiteboard = ScriptInclude({
+    $id: Now.ID['DdgPublicWhiteboard'],
+    name: 'DdgPublicWhiteboard',
+    script: Now.include('../../script-includes/ddg-public-whiteboard.js'),
+    description: 'Opens a publicly shared whiteboard by its link token, checking its password.',
+    accessibleFrom: 'package_private',
+})

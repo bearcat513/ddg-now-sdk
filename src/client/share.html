@@ -1,0 +1,12 @@
+<html>
+  <head>
+    <title>Whiteboard</title>
+
+    <!-- No <sdk:now-ux-globals>: this page is opened by people without an
+         account, and it makes its one request without a session on purpose. -->
+    <script src="share.tsx?uxpcb=$[UxFrameworkScriptables.getFlushTimestamp()]" type="module"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

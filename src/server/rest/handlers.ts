@@ -33,6 +33,8 @@
  *   GET    /whiteboard/{whiteboardId}  one board, drawing included
  *   PUT    /whiteboard/{whiteboardId}  save a drawing
  *   DELETE /whiteboard/{whiteboardId}  remove it
+ *   PUT    /whiteboard/{whiteboardId}/share  its public link: on, off, password
+ *   POST   /public/whiteboard/{token}  a shared board, for anyone — see public-whiteboard.ts
  *   GET    /openapi                    all of the above, as an OpenAPI document
  *
  * They are also the UI Page's entire data layer. That is a deliberate change
@@ -90,9 +92,16 @@ import {
     deleteWhiteboard,
     getWhiteboard,
     listWhiteboards,
+    setWhiteboardShare,
     updateWhiteboard,
 } from '../db/whiteboards.ts'
-import { EMPTY_WHITEBOARD_SCENE, validateWhiteboard, type WhiteboardInput } from '../lib/whiteboard.ts'
+import {
+    EMPTY_WHITEBOARD_SCENE,
+    validateSharePassword,
+    validateWhiteboard,
+    type WhiteboardInput,
+    type WhiteboardShareInput,
+} from '../lib/whiteboard.ts'
 import { renderScriptTemplate, scriptFileName, scriptTemplateValues } from '../lib/scriptTemplate.ts'
 import { buildOpenApiDocument } from '../lib/openapi.ts'
 
@@ -667,6 +676,39 @@ export function deleteWhiteboardHandler(request: RestRequest, response: RestResp
             return fail(response, 404, 'No such whiteboard, or it is not yours to delete.')
         }
         json(response, 200, { ok: true })
+    })
+}
+
+/**
+ * Turns a board's public link on or off, and sets or clears its password.
+ *
+ * The owner's own write, under the same ACL as saving the drawing — anyone
+ * who may not change the board gets the same 404 a missing one does. The
+ * anonymous read the link leads to is `public-whiteboard.ts`.
+ */
+export function updateWhiteboardShareHandler(request: RestRequest, response: RestResponse): void {
+    guarded('update-whiteboard-share', response, () => {
+        const whiteboardId = request.pathParams?.whiteboardId
+        if (!whiteboardId) return fail(response, 400, 'No whiteboard id in the path.')
+
+        const body = readBody(request)
+        if (typeof body.enabled !== 'boolean') return fail(response, 400, 'Send { "enabled": true | false }.')
+        if (body.password !== undefined && body.password !== null && typeof body.password !== 'string') {
+            return fail(response, 400, '"password" is a string to set one, or null to remove it.')
+        }
+        if (typeof body.password === 'string') {
+            const error = validateSharePassword(body.password)
+            if (error) return fail(response, 400, error)
+        }
+
+        const input: WhiteboardShareInput = {
+            enabled: body.enabled,
+            password: body.password as string | null | undefined,
+            newLink: body.newLink === true,
+        }
+        const share = setWhiteboardShare(whiteboardId, input)
+        if (!share) return fail(response, 404, 'No such whiteboard, or it is not yours to share.')
+        json(response, 200, share)
     })
 }
 

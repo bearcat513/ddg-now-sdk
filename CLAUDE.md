@@ -44,7 +44,8 @@ previous artifacts in place, so deploying without rebuilding pushes stale output
     a dependency.
   - `components/app/` — this product: `Sidebar`, `FieldRow`, `TypeSelect`, `PreviewTable`,
     `RowDetail`, `ImportPanel`, `MetadataEditor`, `ScriptTemplatePanel`, `CodeEditor`,
-    `SettingsPanel`, `SplitHandle`, `WhiteboardPanel`, `WhiteboardCanvas`.
+    `SettingsPanel`, `SplitHandle`, `WhiteboardPanel`, `WhiteboardCanvas`, `WhiteboardSharePopover`,
+    `SharedWhiteboard` (the public page's whole UI, mounted by `share.tsx`).
   - `components/docs/` — the API reference view (`?view=docs`): `DocsPanel`, `OperationCard`,
     `SchemaView`, `CodeBlock`, `Markdown`, `MethodBadge`. Copied from `legacy/components/docs/`.
   - `lib/api.ts` — **the only file that knows a URL.** A component that calls `fetch` is a bug.
@@ -138,6 +139,24 @@ for a `.excalidraw` file (`serializeAsJSON(..., 'local')`), pasted images includ
   boards only save when you press Save, and saving someone else's board creates your own copy —
   the same rule script templates follow. `MAX_WHITEBOARD_SCENE_LENGTH` in
   `src/server/lib/whiteboard.ts` must match the column's `maxLength`.
+
+### Public links
+
+An owner can share a board by link, optionally with a password. The link opens
+`x_1040823_ddg_now_whiteboard_share.do?token=…` — a second UI page (`share.html` → `share.tsx`),
+listed in `sys_public`, that loads no studio code and makes one request:
+`POST /public/whiteboard/{token}`, with no session and no cookies.
+
+- That route is the app's **only unauthenticated endpoint and only read without the caller's ACLs.**
+  The elevated read is `DdgPublicWhiteboard._lookup` (a `package_private` Script Include): one
+  exact-match query on a shared board's token. Everything else — rejecting malformed tokens before
+  the query, the password check, what the response may contain — is `resolvePublicWhiteboard` in
+  `lib/whiteboard.ts`, Glide-free and tested. Keep the privilege in that one method.
+- `share_password` stores `sha256:<rounds>:<salt>:<hex>`, never the password, and a field ACL makes it
+  unreadable to everyone, admins included. `share_protected` is how the owner's page knows a password
+  exists. `share_token` is readable only by the owner.
+- Toggling sharing off keeps the token, so turning it back on restores the same link;
+  `newLink: true` is how old links are revoked. A "Save a copy" starts unshared.
 
 ## The generator
 

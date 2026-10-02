@@ -24,7 +24,14 @@
 import type { Dataset, Field, SchemaConfig } from '../../server/lib/types'
 import type { Preferences } from '../../server/lib/preferences'
 import type { ScriptTemplate } from '../../server/lib/scriptTemplate'
-import type { Whiteboard, WhiteboardInput, WhiteboardSummary } from '../../server/lib/whiteboard'
+import type {
+    PublicWhiteboard,
+    Whiteboard,
+    WhiteboardInput,
+    WhiteboardShare,
+    WhiteboardShareInput,
+    WhiteboardSummary,
+} from '../../server/lib/whiteboard'
 import { OPENAPI_FILE_NAME, OPENAPI_PATH } from '../../server/lib/openapi'
 import type { OpenApiDoc, TrialRequest } from './openapiDoc'
 
@@ -130,6 +137,43 @@ async function fetchText(url: string, what: string): Promise<string> {
         if (error instanceof Error && error.message) throw error
     }
     throw new Error(`${what} could not be read (${response.status}).`)
+}
+
+/**
+ * A shared board, opened by its link — the public page's only request.
+ *
+ * Sent without a session on purpose: no `X-UserToken`, and no cookies either,
+ * so a viewer who happens to be signed in sees exactly what a stranger would.
+ * A board with a password answers 401 until the right one is sent, which comes
+ * back here as `passwordRequired` rather than as a thrown error, because it is
+ * the page's next step and not a failure.
+ */
+export type PublicWhiteboardResult =
+    | { board: PublicWhiteboard }
+    | { passwordRequired: true; error?: string }
+
+async function openPublicWhiteboard(token: string, password?: string): Promise<PublicWhiteboardResult> {
+    const response = await fetch(`${API_BASE}/public/whiteboard/${encodeURIComponent(token)}`, {
+        method: 'POST',
+        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(password ? { password } : {}),
+    })
+
+    const text = await response.text()
+    let payload: unknown = null
+    try {
+        payload = text ? JSON.parse(text) : null
+    } catch {
+        throw new Error(`The server returned something that is not JSON (${response.status}).`)
+    }
+
+    if (response.ok) return { board: unwrap(payload) as PublicWhiteboard }
+    if ((unwrap(payload) as { passwordRequired?: boolean } | null)?.passwordRequired) {
+        // The first ask is a prompt, not a mistake; only a wrong password is.
+        return { passwordRequired: true, error: password ? errorMessage(payload) : undefined }
+    }
+    throw new Error(errorMessage(payload) || `This whiteboard could not be opened (${response.status}).`)
 }
 
 /* --------------------------------- types --------------------------------- */
@@ -356,6 +400,12 @@ export const api = {
 
     deleteWhiteboard: (id: string) =>
         request<{ ok: true }>(`/whiteboard/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+    /** Turns the public link on or off; see `WhiteboardShareInput` for the password's three states. */
+    updateWhiteboardShare: (id: string, share: WhiteboardShareInput) =>
+        request<WhiteboardShare>(`/whiteboard/${encodeURIComponent(id)}/share`, { method: 'PUT', ...body(share) }),
+
+    openPublicWhiteboard,
 
     /* ----------------------------- preferences ---------------------------- */
 

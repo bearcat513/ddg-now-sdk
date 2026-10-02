@@ -32,7 +32,13 @@
 
 import { DEFAULT_PREFERENCES, NAV_SECTIONS, PREFERENCE_LIMITS, THEMES } from './preferences.ts'
 import { MAX_TEMPLATE_BODY_LENGTH, MAX_TEMPLATE_NAME_LENGTH, PLACEHOLDERS } from './scriptTemplate.ts'
-import { MAX_WHITEBOARD_NAME_LENGTH, MAX_WHITEBOARD_SCENE_LENGTH } from './whiteboard.ts'
+import {
+    MAX_SHARE_PASSWORD_LENGTH,
+    MAX_WHITEBOARD_NAME_LENGTH,
+    MAX_WHITEBOARD_SCENE_LENGTH,
+    MIN_SHARE_PASSWORD_LENGTH,
+    SHARE_TOKEN_LENGTH,
+} from './whiteboard.ts'
 import { FIELD_TYPES, LOCALES } from './types.ts'
 
 type Json = Record<string, unknown>
@@ -133,6 +139,8 @@ export type ApiOperation = {
     requestBody?: Json
     /** Merged over the defaults every operation shares. */
     responses: Record<string, Json>
+    /** Needs no credential at all — documented with `security: []` and no 401 default. */
+    public?: boolean
 }
 
 /**
@@ -495,6 +503,53 @@ export const OPERATIONS: ApiOperation[] = [
         summary: 'Delete a whiteboard',
         parameters: [idParam('whiteboardId', 'whiteboard')],
         responses: { '200': jsonResponse('Deleted.', ref('Ok')), '404': responseRef('NotFound') },
+    },
+    {
+        method: 'put',
+        path: '/whiteboard/{whiteboardId}/share',
+        tag: 'Whiteboards',
+        operationId: 'updateWhiteboardShare',
+        summary: "Turn a whiteboard's public link on or off, and set or clear its password",
+        description:
+            'Only the owner may. The link is minted the first time a board is shared and kept after that, so ' +
+            'switching it off and on brings the same link back; `newLink` replaces it. `password` is a string to ' +
+            'set one, `null` to remove it, and left out to keep whatever is there.',
+        parameters: [idParam('whiteboardId', 'whiteboard')],
+        requestBody: jsonBody('The sharing settings.', ref('WhiteboardShareInput')),
+        responses: { '200': jsonResponse('Saved.', ref('WhiteboardShare')), '404': responseRef('NotFound') },
+    },
+    {
+        method: 'post',
+        path: '/public/whiteboard/{token}',
+        tag: 'Whiteboards',
+        operationId: 'publicWhiteboard',
+        summary: 'A publicly shared whiteboard, for anyone holding its link — no credential needed',
+        description:
+            'POST so a password travels in the body, not the URL. A board without one needs no body. A board ' +
+            'that is not shared answers exactly as one that does not exist.',
+        public: true,
+        parameters: [
+            {
+                name: 'token',
+                in: 'path',
+                required: true,
+                description: `The ${SHARE_TOKEN_LENGTH}-character token from the board's public link.`,
+                schema: { type: 'string' },
+            },
+        ],
+        requestBody: jsonBody(
+            'The password, when the board has one.',
+            { type: 'object', properties: { password: { type: 'string' } } },
+            false,
+        ),
+        responses: {
+            '200': jsonResponse('The board.', ref('PublicWhiteboard')),
+            '401': jsonResponse('The board has a password, and it was missing or wrong.', {
+                type: 'object',
+                properties: { error: { type: 'string' }, passwordRequired: { type: 'boolean', enum: [true] } },
+            }),
+            '404': responseRef('NotFound'),
+        },
     },
 
     /* ----------------------------- preferences ---------------------------- */
@@ -921,6 +976,43 @@ function schemas(): Record<string, Json> {
                 canWrite: { type: 'boolean' },
                 createdAt: { type: 'string' },
                 updatedAt: { type: 'string' },
+                share: {
+                    nullable: true,
+                    description: 'The public link — only for whoever may change the board, null for everyone else.',
+                    allOf: [ref('WhiteboardShare')],
+                },
+            },
+        },
+        WhiteboardShare: {
+            type: 'object',
+            properties: {
+                enabled: { type: 'boolean' },
+                token: { type: 'string', description: 'Empty until the board is first shared.' },
+                passwordProtected: { type: 'boolean' },
+            },
+        },
+        WhiteboardShareInput: {
+            type: 'object',
+            required: ['enabled'],
+            properties: {
+                enabled: { type: 'boolean' },
+                password: {
+                    type: 'string',
+                    nullable: true,
+                    minLength: MIN_SHARE_PASSWORD_LENGTH,
+                    maxLength: MAX_SHARE_PASSWORD_LENGTH,
+                    description: 'A string sets the password, null removes it, and leaving it out keeps it.',
+                },
+                newLink: { type: 'boolean', description: 'Replace the link; the old one stops working.' },
+            },
+            example: { enabled: true, password: 'correct horse' },
+        },
+        PublicWhiteboard: {
+            type: 'object',
+            properties: {
+                name: { type: 'string' },
+                scene: { type: 'string', description: "The `.excalidraw` file's text, verbatim." },
+                updatedAt: { type: 'string' },
             },
         },
         Whiteboard: {
@@ -1019,7 +1111,7 @@ export function buildOpenApiDocument({ instanceUrl }: { instanceUrl?: string } =
         const responses: Record<string, Json> = {
             ...operation.responses,
             ...(requestBody ? { '400': responseRef('BadRequest') } : {}),
-            '401': responseRef('Unauthorized'),
+            ...(operation.public ? {} : { '401': responseRef('Unauthorized') }),
             '500': responseRef('ServerError'),
             ...operation.responses,
         }
@@ -1032,6 +1124,7 @@ export function buildOpenApiDocument({ instanceUrl }: { instanceUrl?: string } =
             ...(description ? { description } : {}),
             ...(parameters?.length ? { parameters } : {}),
             ...(requestBody ? { requestBody } : {}),
+            ...(operation.public ? { security: [] } : {}),
             responses,
         }
     }
