@@ -15,6 +15,32 @@
 
 import { servicenowFrontEndPlugins, rollup, glob } from '@servicenow/isomorphic-rollup'
 
+/**
+ * Gives every non-entry chunk a content hash in its file name.
+ *
+ * The SDK builds each HTML page in its own isolated rollup run and merges the
+ * outputs by file name, and it names chunks `[name].jsdbx`. So a module both
+ * pages lazy-load — `WhiteboardCanvas`, imported by the studio and by the
+ * share page — comes out of each build as `WhiteboardCanvas.jsdbx`, and the
+ * last build written wins. The studio then loads the share page's copy, which
+ * is bound to the share page's own React and imports `share.jsdbx`: two
+ * Reacts on one page (minified error #321) and the share entry running inside
+ * the studio.
+ *
+ * Hashing the name keeps the two copies apart. Entries keep their plain names,
+ * because the HTML refers to them by name, and vendor chunks are renamed to a
+ * content hash by the SDK afterwards either way. Registered after the SDK's
+ * plugins, so this `outputOptions` hook runs last and its value stands.
+ */
+function uniqueChunkNames() {
+    return {
+        name: 'ddg-unique-chunk-names',
+        outputOptions(options) {
+            return { ...options, chunkFileNames: '[name]-[hash].jsdbx' }
+        },
+    }
+}
+
 export default async function buildClient({ rootDir, config, fs, path, logger, registerExplicitId }) {
     const clientDir = path.join(rootDir, config.clientDir)
     const htmlFilePattern = path.join(clientDir, '**', '*.html')
@@ -42,6 +68,7 @@ export default async function buildClient({ rootDir, config, fs, path, logger, r
                 // stays editable on the instance and through Build Agent.
                 editableSourceCodeOnInstance: config.packageSourceCodeOnInstance,
             }),
+            uniqueChunkNames(),
         ],
     })
 
